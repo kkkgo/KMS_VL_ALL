@@ -1,10 +1,10 @@
 @echo off
 ::===================
 :: Set Title of the script
-title KMS_VL_ALL_6.9_beta_1
+title KMS_VL_ALL_6.9_beta_3
 ::===================
 :: Get Fully Qualified FileName of the script
-set "_FilePath=%~f0"
+set "_FileName=%~f0"
 ::===================
 :: Get Drive and Path containing the script
 set "_FileDir=%~dp0"
@@ -22,10 +22,9 @@ set /a _OfflineMode=1
 set /a _Task=1
 ::===================
 :: Can be ONSTART | ONLOGON | MINUTE(1 - 1439) | HOURLY(1 - 23) | DAILY(1 - 365) | WEEKLY(1 - 52) | MONTHLY(1 - 12)
-set _TaskFrequency=ONLOGON
-::===================
+set "_TaskFrequency=ONLOGON"
 :: Can be numbers in the range shown above
-set /a _Modifier=1
+set /a _TaskModifier=1
 ::============================================================================================================================================================
 :: Set Parameters for KMS Server
 ::===================
@@ -82,7 +81,7 @@ set "_KMSGenuineKey=HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\S
 :: Get Administrator Rights
 fltmc >nul 2>&1 || (
     echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\GetAdmin.vbs"
-    echo UAC.ShellExecute "!_FilePath!", "", "", "runas", 1 >> "%temp%\GetAdmin.vbs"
+    echo UAC.ShellExecute "!_FileName!", "", "", "runas", 1 >> "%temp%\GetAdmin.vbs"
     cmd /u /c type "%temp%\GetAdmin.vbs">"%temp%\GetAdminUnicode.vbs"
     cscript //nologo "%temp%\GetAdminUnicode.vbs"
     del /f /q "%temp%\GetAdmin.vbs" >nul 2>&1
@@ -174,12 +173,25 @@ for /f "tokens=2 delims==" %%G in ('wmic path Win32_Processor get AddressWidth /
     set _OSarch=%%G-bit
 )
 ::===================
-:: Get Windows OS Current Edition
-for /f "tokens=3 delims=: " %%G in ('dism /Online /Get-CurrentEdition /English ^| find /i "Current Edition :"') do (
-    set _EditionID=%%G
+:: Visual Studio 2013(v12) Ultimate Activation
+if %_OSarch% EQU 64-bit (
+    for /f "skip=2 tokens=2*" %%G in ('"reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\12.0 /v InstallDir" 2^>nul') do (
+        set "_VS12=%%H"
+    )
+) else (
+    for /f "skip=2 tokens=2*" %%G in ('"reg query HKLM\SOFTWARE\Microsoft\VisualStudio\12.0 /v InstallDir" 2^>nul') do (
+        set "_VS12=%%H"
+    )
+)
+if exist "%_VS12%\StorePID.exe" (
+    start "" /b "%_VS12%\StorePID.exe" 87DQC-G8CYR-CRPJ4-QX9K8-RFV2B 06181
+    if %ERRORLEVEL% EQU 0 (
+        echo Visual Studio 2013 Ultimate activated successfully
+        echo.
+    )
 )
 ::===================
-:: Visual Studio 2015(14) Enterprise Activation
+:: Visual Studio 2015(v14) Enterprise Activation
 if %_OSarch% EQU 64-bit (
     for /f "skip=2 tokens=2*" %%G in ('"reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0 /v InstallDir" 2^>nul') do (
         set "_VS14=%%H"
@@ -197,7 +209,7 @@ if exist "%_VS14%\StorePID.exe" (
     )
 )
 ::===================
-:: Visual Studio 2017(15) Enterprise Activation
+:: Visual Studio 2017(v15) Enterprise Activation
 if %_OSarch% EQU 64-bit (
     for /f "skip=2 tokens=2*" %%G in ('"reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7 /v 15.0" 2^>nul') do (
         set "_VS15=%%HCommon7\IDE"
@@ -215,10 +227,28 @@ if exist "%_VS15%\StorePID.exe" (
     )
 )
 ::===================
-:: Get Windows OS version information and goto Respective Function
+:: Get Windows OS build number
 for /f "tokens=2 delims==" %%G in ('wmic path Win32_OperatingSystem get BuildNumber /value') do (
     set /a _WinBuild=%%G
 )
+::===================
+:: Get Windows License Status for Vista or above AND Installed Windows Edition
+if %_WinBuild% GEQ 6000 (
+    if %_WinBuild% GEQ 9200 (
+        for /f "tokens=3 delims=: " %%G in ('dism /Online /Get-CurrentEdition /English ^| findstr /i "Current Edition :"') do (
+            set "_Edition=%%G"
+        )
+    ) else (
+        for /f "tokens=2 delims== " %%G in ('"wmic path SoftwareLicensingProduct where (PartialProductKey is not NULL) get LicenseStatus /value" 2^>nul') do (
+            set /a _LicenseStatus=%%G
+        )
+        for /f "tokens=3 delims= " %%G in ('"wmic path SoftwareLicensingProduct where LicenseStatus='%_LicenseStatus%' get Name" 2^>nul') do (
+            set "_Edition=%%G"
+        )
+    )
+)
+::===================
+:: Goto Main blocks according to Windows BuildNumber
 if %_WinBuild% GEQ 9600 (
     REM NO parenthesis or brackets in echo messages
     echo Operating System: Windows 8.1 or Above
@@ -240,17 +270,17 @@ if %_Task% EQU 1 (
         schtasks /delete /tn "%_TaskName%" /f >nul 2>&1
     )
     if /i %_TaskFrequency% EQU ONSTART (
-        schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FilePath!" >nul 2>&1 && (
+        schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FileName!" >nul 2>&1 && (
             echo.
             echo Auto-Renewal Task is Created.
         )
     ) else if /i %_TaskFrequency% EQU ONLOGON (
-        schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FilePath!" >nul 2>&1 && (
+        schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FileName!" >nul 2>&1 && (
             echo.
             echo Auto-Renewal Task is Created.
         )
     ) else (
-        schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /mo "%_Modifier%" /tr "!_FilePath!" >nul 2>&1 && (
+        schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /mo "%_TaskModifier%" /tr "!_FileName!" >nul 2>&1 && (
             echo.
             echo Auto-Renewal Task is Created.
         )
@@ -448,6 +478,13 @@ wmic path %_spp% where (Description like '%%KMSCLIENT%%') get Name /value 2>nul 
     )
 )
 ::===================
+:: Check if GVLK is installed for Windows
+wmic path %_spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name /value 2>nul | findstr /i "Windows" 1>nul && (
+    set /a _WindowsGVLK=1
+) || (
+    set /a _WindowsGVLK=0
+)
+::===================
 :: Call Common Core Activation Routines
 call :CommonSLSandOSPS
 reg delete "%_hkSPP%\55c92734-d682-4d71-983e-d6ec3f16059f" /f >nul 2>&1
@@ -484,7 +521,7 @@ exit /b
 :CommonSLSandOSPS
 :: Get SoftwareLicensingService/OfficeSoftwareProtectionService version to set 'KMSHost' and 'KMSPort' values
 for /f "tokens=2 delims==" %%G in ('"wmic path %_sps% get Version /value"') do (
-    set _ver=%%G
+    set "_ver=%%G"
 )
 wmic path %_sps% where version='%_ver%' call SetKeyManagementServiceMachine MachineName="%_KMSHost%" >nul 2>&1
 wmic path %_sps% where version='%_ver%' call SetKeyManagementServicePort %_KMSPort% >nul 2>&1
@@ -493,7 +530,7 @@ wmic path %_sps% where version='%_ver%' call SetVLActivationTypeEnabled 2 >nul 2
 ::===================
 :: For all the supported KMS Clients in SoftwareLicensingProduct/OfficeSoftwareProtectionProduct call 'CheckProduct'
 for /f "tokens=2 delims==" %%G in ('"wmic path %_spp% where (Description like '%%KMSCLIENT%%') get ID /value"') do (
-    set _ActivationID=%%G
+    set "_ActivationID=%%G"
     call :CheckProduct !_ActivationID!
 )
 ::===================
@@ -512,19 +549,30 @@ if '%1' EQU 'b71515d9-89a2-4c60-88c8-656fbcca7f3a' (
     exit /b
 )
 ::===================
-:: If Detected KMS Client already has GVLK, call Activate function
-for /f "tokens=2 delims==" %%G in ('"wmic path %_spp% where ID='%1' get PartialProductKey /value"') do (
-    set _PartialKey=%%G
+:: If Detected KMS Client is already activated earlier OR has GVLK, call Activate function
+wmic path %_spp% where ID='%1' get LicenseStatus | findstr "1" >nul 2>&1 && (
+    call :Activate %1
+    exit /b
 )
-:: Note that the below check ONLY works when variable don't contain quotes
-if [%_PartialKey%] NEQ [] (
+wmic path %_spp% where (PartialProductKey is not NULL) get ID | findstr /i "%1" >nul 2>&1 && (
     call :Activate %1
     exit /b
 )
 ::===================
+:: Skip for UnNecessary Products
+set /a _OfficeSLP=0
+wmic path %_spp% where ID='%1' get Name /value | findstr /i "Office" 1>nul && (
+    set /a _OfficeSLP=1
+)
+if %_OfficeSLP% EQU 0 (
+    if %_WindowsGVLK% EQU 1 (
+        exit /b
+    )
+)
+::===================
 :: If Detected KMS Client don't have GVLK, do checks for permanent activation, then install GVLK and activate it
 for /f "tokens=3 delims==, " %%G in ('"wmic path %_spp% where ID='%1' get Name /value"') do (
-    set _ProductName=%%G
+    set "_ProductName=%%G"
 )
 if '%_ProductName%' EQU '16' (
     if %_Office16% EQU 0 (
@@ -552,7 +600,7 @@ if '%_ProductName%' EQU '16' (
 :CheckWindows
 wmic path %_spp% where (LicenseStatus='1' and GracePeriodRemaining='0') get Name 2>nul | findstr /i "Windows" >nul 2>&1 && (
     echo.
-    echo Detected Windows is permanently activated.
+    echo Detected Windows %_Edition% is permanently activated.
     exit /b
 )
 ::===================
@@ -865,7 +913,7 @@ wmic path %_spp% where ID='%1' call ClearKeyManagementServicePort >nul 2>&1
 :: Call Activate method of the corresponding KMS Client
 for /f "tokens=2 delims==" %%G in ('"wmic path %_spp% where ID='%1' get Name /value"') do (
     echo.
-    echo Attempting to Activate %%G
+    echo Attempting to activate %%G
 )
 wmic path %_spp% where ID='%1' call Activate >nul 2>&1
 ::===================
@@ -889,15 +937,15 @@ if %_gprMinutes% EQU 64800 (
 )
 if %_gprMinutes% EQU 216000000 (
     if %_WinBuild% GEQ 15063 (
-        echo Windows 10 EnterpriseG/GN Activation Successful
+        echo Windows 10 Enterprise G/GN Activation Successful
         echo Remaining Period: %_gprDays% days ^(%_gprMinutes% minutes^)
         exit /b
     )
 )
 if %_gprMinutes% EQU 259200 (
-    echo Product Activation Successful
+    echo Activation Successful
 ) else (
-    echo Product Activation Failed
+    echo Activation Failed
 )
 echo Remaining Period: %_gprDays% days ^(%_gprMinutes% minutes^)
 exit /b
@@ -905,7 +953,7 @@ exit /b
 :SelectKey
 :: Select GenericVolumeLicenseKey based on Activation ID (SKU-ID) and Install it, if found
 for /f "tokens=2 delims==" %%G in ('"wmic path %_spp% where ID='%1' get Name /value"') do (
-    set _Name=%%G
+    set "_Name=%%G"
     echo.
     echo Searching GenericVolumeLicenseKey for %%G
     goto :%1 2>nul || goto :KeyNotFound
@@ -1148,33 +1196,43 @@ goto :InstallKey
 ::============================================================================================================================================================
 :: Windows 10 Professional
 :2de67392-b7a7-462a-b1ca-108dd189f588
-if '%_EditionID%' NEQ 'Professional' goto :ErrorEdition
+if '%_Edition%' NEQ 'Professional' goto :ErrorEdition
 set _key=W269N-WFGWX-YVC9B-4J6C9-T83GX
 goto :InstallKey
 :: Windows 10 Professional N
 :a80b5abf-76ad-428b-b05d-a47d2dffeebf
-if '%_EditionID%' NEQ 'ProfessionalN' goto :ErrorEdition
+if '%_Edition%' NEQ 'ProfessionalN' goto :ErrorEdition
 set _key=MH37W-N47XK-V7XM9-C7227-GCQG9
 goto :InstallKey
 :: Windows 10 Professional Education
 :3f1afc82-f8ac-4f6c-8005-1d233e606eee
-if '%_EditionID%' NEQ 'ProfessionalEducation' goto :ErrorEdition
+if '%_Edition%' NEQ 'ProfessionalEducation' goto :ErrorEdition
 set _key=6TP4R-GNPTD-KYYHQ-7B7DP-J447Y
 goto :InstallKey
 :: Windows 10 Professional Education N
 :5300b18c-2e33-4dc2-8291-47ffcec746dd
-if '%_EditionID%' NEQ 'ProfessionalEducationN' goto :ErrorEdition
+if '%_Edition%' NEQ 'ProfessionalEducationN' goto :ErrorEdition
 set _key=YVWGF-BXNMC-HTQYQ-CPQ99-66QFC
 goto :InstallKey
 :: Windows 10 Enterprise
 :73111121-5638-40f6-bc11-f1d7b0d64300
-if '%_EditionID%' NEQ 'Enterprise' goto :ErrorEdition
+if '%_Edition%' NEQ 'Enterprise' goto :ErrorEdition
 set _key=NPPR9-FWDCX-D2C8J-H872K-2YT43
 goto :InstallKey
 :: Windows 10 Enterprise N
 :e272e3e2-732f-4c65-a8f0-484747d0d947
-if '%_EditionID%' NEQ 'EnterpriseN' goto :ErrorEdition
+if '%_Edition%' NEQ 'EnterpriseN' goto :ErrorEdition
 set _key=DPH2V-TTNVB-4X9Q3-TJR4H-KHJW4
+goto :InstallKey
+:: Windows 10 Professional for Advanced PCs
+if '%_Edition%' NEQ 'ProfessionalWorkstation' goto :ErrorEdition
+:82bbc092-bc50-4e16-8e18-b74fc486aec3
+set _key=NRG8B-VKK3Q-CXVCJ-9G2XF-6Q84J
+goto :InstallKey
+:: Windows 10 Professional for Advanced PCs N
+if '%_Edition%' NEQ 'ProfessionalWorkstationN' goto :ErrorEdition
+:4b1571d3-bafb-4b40-8087-a961be2caf65
+set _key=9FNHH-K3HBT-3W4TD-6383H-6XYWF
 goto :InstallKey
 :: Windows 10 Education
 :e0c42288-980c-4788-a014-c080d2e1926e
@@ -1200,14 +1258,6 @@ goto :InstallKey
 :9f776d83-7156-45b2-8a5c-359b9c9f22a3
 set _key=QFFDN-GRT3P-VKWWX-X7T3R-8B639
 goto :InstallKey
-:: Windows 10 Home
-:58e97c99-f377-4ef1-81d5-4ad5522b5fd8
-set _key=TX9XD-98N7V-6WMQ6-BX7FG-H8Q99
-goto :InstallKey
-:: Windows 10 Home N
-:7b9e1751-a8da-4f75-9560-5fadfe3d8e38
-set _key=3KHY7-WNT83-DGQKR-F7HPR-844BM
-goto :InstallKey
 :: Windows 10 Enterprise G
 :e0b2d383-d112-413f-8a80-97f373a5820c
 set _key=YYVX9-NTFWV-6MDM3-9PT4T-4M68B
@@ -1215,6 +1265,14 @@ goto :InstallKey
 :: Windows 10 Enterprise GN
 :e38454fb-41a4-4f59-a5dc-25080e354730
 set _key=44RPN-FTY23-9VTTB-MP9BX-T84FV
+goto :InstallKey
+:: Windows 10 Home
+:58e97c99-f377-4ef1-81d5-4ad5522b5fd8
+set _key=TX9XD-98N7V-6WMQ6-BX7FG-H8Q99
+goto :InstallKey
+:: Windows 10 Home N
+:7b9e1751-a8da-4f75-9560-5fadfe3d8e38
+set _key=3KHY7-WNT83-DGQKR-F7HPR-844BM
 goto :InstallKey
 :: Windows 10 Home Single Language
 :cd918a57-a41b-4c82-8dce-1a538e221a83
@@ -1244,6 +1302,10 @@ goto :InstallKey
 :: Windows Server 2016 Azure Core
 :3dbf341b-5f6c-4fa7-b936-699dce9e263f
 set _key=VP34G-4NPPG-79JTQ-864T4-R3MQX
+goto :InstallKey
+:: Windows Server 2016 RDSH
+:e4db50ea-bda1-4566-b047-0ca50abc6f07
+set _key=7NBT4-WGBQX-MP4H7-QXFF8-YP3KX
 goto :InstallKey
 ::============================================================================================================================================================
 :: Windows 8.1 Professional
@@ -1529,7 +1591,6 @@ goto :InstallKey
 ::============================================================================================================================================================
 :: If current SKU-ID is not equal to installed edition ID, then interrupt the 'InstallKey' process
 :ErrorEdition
-echo %_Name% is not equal to the installed edition '%_EditionID%', skipping 'Install Key'.
 exit /b
 ::============================================================================================================================================================
 :KeyNotFound
