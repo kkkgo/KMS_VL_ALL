@@ -1,3 +1,4 @@
+# KMS-VL-ALL-7.0beta 2018-01-25 11:48:50 UTC  
 ## How to use ?
 #### For KMS Activation of Volume Licensed Products:
 1. Run KMS-VL-ALL.cmd as Administrator.  
@@ -27,4 +28,7 @@ Edit KMS-VL-ALL.cmd and change Debug parameter from 0 to 1, run as admin and upl
 ###### Retail/MAK and their Enterprise editions 
 ###### Server 2008/2008 R2/2012/2012R2/2016 Retail, MAK editions
 ###### Office 2010/2013/2016 MAK editions
-###### Office 2016 C2R edition
+###### Office 2016 C2R edition  
+本仓库同步自mydigitallife论坛.  
+This code is synchronized from the mydigitallife forum.  
+https://forums.mydigitallife.net/threads/kms_vl_all-online-offline-kms-activator.63471/  
