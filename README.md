@@ -40,7 +40,7 @@ Edit KMS-VL-ALL.cmd and change Debug parameter from 0 to 1, run as admin and upl
 2. 完事了.  
 
 ## 我怎么知道它工作正不正常 ?
-编辑 KMS-VL-ALL.cmd , 更改Debug参数改为 1, 右键管理员运行之后观察日志.  
+编辑 KMS-VL-ALL.cmd , 更改Debug参数改为 1, 右键管理员运行之后观察目录下的日志文件.  
 
 ## 支持的产品:
 (32位和64位)
