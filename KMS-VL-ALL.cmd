@@ -37,8 +37,8 @@ call "%~s0" debug >"%~sdp0KMS_VL_ALL_Debug.log" 2>&1
 ::=============================================================
 :Begin
 :: Set Title of the Script; Color [Background][Text] in hex (0 to F)
-title KMS-VL-ALL-7.0beta [2018-01-25]
-color 0A
+title KMS-VL-ALL-7.0RC [2018-03-28]
+color 07
 ::===================
 :: Get Fully Qualified FileName of the Script
 set "_FileName=%~f0"
@@ -56,7 +56,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 set /a _OfflineMode=1
 ::===================
 :: Can be 0 (Delete Auto-Renewal-Task OR Manual-Mode) | 1 (Create Auto-Renewal-Task)
-set /a _Task=1
+set /a _Task=0
 ::===================
 :: Can be ONSTART | ONLOGON | MINUTE(1-1439) | HOURLY(1-23) | DAILY(1-365) | WEEKLY(1-52) | MONTHLY(1-12)
 set "_TaskFrequency=ONLOGON"
@@ -234,8 +234,7 @@ if %_OfflineMode% EQU 1 (
     call :StopService "osppsvc"
   )
   REM Copy the DLL Injection files to system32 folder based on OS architecture
-  xcopy "%_OSarch%\SppExtComObjPatcher.exe" "%SystemRoot%\system32\" /y /q %_Nul_1_2%
-  xcopy "%_OSarch%\SppExtComObjHook.dll" "%SystemRoot%\system32\" /y /q %_Nul_1_2%
+  robocopy "%_OSarch%" "%SystemRoot%\system32" SppExtComObjHook.dll SppExtComObjPatcher.exe /njh /njs %_Nul_1_2%
   REM Create registry keys for DLL Hook
   call :CreateIFEOEntry "SppExtComObj.exe"
   if %_OSPS% NEQ 0 (
@@ -316,14 +315,23 @@ if %_OfflineMode% EQU 1 (
 call :Close
 ::=============================================================
 :AddFirewallRule
-:: Add VLMCSD KMS Exception to Windows Firewall; Windows XP SP3 or Later Compatible
-netsh firewall delete allowedprogram "!_FileDir!32-bit\vlmcsd.exe" %_Nul_1_2%
-netsh firewall add allowedprogram "!_FileDir!32-bit\vlmcsd.exe" "vlmcsd" %_Nul_1_2%
+:: Add VLMCSD KMS Exception to Windows Firewall
+if %_WinBuild% LSS 6000 (
+  netsh firewall delete allowedprogram "!_FileDir!32-bit\vlmcsd.exe" %_Nul_1_2%
+  netsh firewall add allowedprogram "!_FileDir!32-bit\vlmcsd.exe" "vlmcsd" %_Nul_1_2%
+) else (
+  netsh advfirewall firewall delete rule name="vlmcsd" %_Nul_1_2%
+  netsh advfirewall firewall add rule name="vlmcsd" dir=in action=allow profile=any program="!_FileDir!32-bit\vlmcsd.exe" %_Nul_1_2%
+)
 exit /b
 ::=============================================================
 :RemoveFirewallRule
 :: Remove VLMCSD KMS Exception from Windows Firewall
-netsh firewall delete allowedprogram "!_FileDir!32-bit\vlmcsd.exe" %_Nul_1_2%
+if %_WinBuild% LSS 6000 (
+  netsh firewall delete allowedprogram "!_FileDir!32-bit\vlmcsd.exe" %_Nul_1_2%
+) else (
+  netsh advfirewall firewall delete rule name="vlmcsd" %_Nul_1_2%
+)
 exit /b
 ::=============================================================
 :StartKMS
@@ -516,7 +524,13 @@ for %%G in (
 for /f "tokens=3 delims==, " %%G in ('"wmic path %_MicrosoftProduct% where ID='%1' get Name /value"') do (
   set "_ProductName=%%G"
 )
-if '%_ProductName%' EQU '16' (
+if '%_ProductName%' EQU '19' (
+  if %_Office16% EQU 0 (
+    exit /b
+  )
+  call :CheckOffice19 %1
+  exit /b
+) else if '%_ProductName%' EQU '16' (
   if %_Office16% EQU 0 (
     exit /b
   )
@@ -621,24 +635,100 @@ wmic path %_MicrosoftProduct% where (LicenseStatus='1' and GracePeriodRemaining=
 call :SelectKey %1
 exit /b
 ::=============================================================
+:CheckOffice19
+if /i '%app%' equ '0bc88885-718c-491d-921f-6f214349e79c' (
+  call :CheckOffice "%1" "19ProPlus2019XC2RVL_MAKC2R" "Office ProPlus 2019 C2R"
+  exit /b
+)
+if /i '%app%' equ 'fc7c4d0c-2e85-4bb9-afd4-01ed1476b5e9' (
+  call :CheckOffice "%1" "19ProjectPro2019XC2RVL_MAKC2R" "Project Pro 2019 C2R"
+  exit /b
+)
+if /i '%app%' equ '500f6619-ef93-4b75-bcb4-82819998a3ca' (
+  call :CheckOffice "%1" "19VisioPro2019XC2RVL_MAKC2R" "Visio Pro 2019 C2R"
+  exit /b
+)
+call :SelectKey %1
+exit /b
+::=============================================================
 :CheckOffice16
-call :CheckOffice "%1" "9caabccb-61b1-4b4b-8bec-d10a3c3ac2ce" "16MondoVL_MAK" "Office 2016 Mondo"
-call :CheckOffice "%1" "d450596f-894d-49e0-966a-fd39ed4c4c64" "16ProPlusVL_MAK" "Office 2016 ProPlus"
-call :CheckOffice "%1" "6bf301c1-b94a-43e9-ba31-d494598c47fb" "16VisioProVL_MAK" "Visio 2016 Pro"
-call :CheckOffice "%1" "4f414197-0fc2-4c01-b68a-86cbb9ac254c" "16ProjectProVL_MAK" "Project 2016 Pro"
-call :CheckOffice "%1" "dedfa23d-6ed1-45a6-85dc-63cae0546de6" "16StandardVL_MAK" "Office 2016 Standard"
-call :CheckOffice "%1" "aa2a7821-1827-4c2c-8f1d-4513a34dda97" "16VisioStdVL_MAK" "Visio 2016 Standard"
-call :CheckOffice "%1" "da7ddabc-3fbe-4447-9e01-6ab7440b4cd4" "16ProjectStdVL_MAK" "Project 2016 Standard"
+if /i '%app%' equ '9caabccb-61b1-4b4b-8bec-d10a3c3ac2ce' (
+  call :CheckOffice "%1" "16MondoVL_MAK" "Office Mondo 2016"
+  exit /b
+)
+if /i '%app%' equ 'd450596f-894d-49e0-966a-fd39ed4c4c64' (
+  call :CheckOffice "%1" "16ProPlusVL_MAK" "Office ProPlus 2016"
+  exit /b
+)
+if /i '%app%' equ 'dedfa23d-6ed1-45a6-85dc-63cae0546de6' (
+  call :CheckOffice "%1" "16StandardVL_MAK" "Office Standard 2016"
+  exit /b
+)
+if /i '%app%' equ '4f414197-0fc2-4c01-b68a-86cbb9ac254c' (
+  call :CheckOffice "%1" "16ProjectProVL_MAK" "Project Pro 2016"
+  exit /b
+)
+if /i '%app%' equ 'da7ddabc-3fbe-4447-9e01-6ab7440b4cd4' (
+  call :CheckOffice "%1" "16ProjectStdVL_MAK" "Project Standard 2016"
+  exit /b
+)
+if /i '%app%' equ '6bf301c1-b94a-43e9-ba31-d494598c47fb' (
+  call :CheckOffice "%1" "16VisioProVL_MAK" "Visio Pro 2016"
+  exit /b
+)
+if /i '%app%' equ 'aa2a7821-1827-4c2c-8f1d-4513a34dda97' (
+  call :CheckOffice "%1" "16VisioStdVL_MAK" "Visio Standard 2016"
+  exit /b
+)
+if /i '%app%' equ '829b8110-0e6f-4349-bca4-42803577788d' (
+  call :CheckOffice "%1" "16ProjectProXC2RVL_MAKC2R" "Project Pro 2016 C2R"
+  exit /b
+)
+if /i '%app%' equ 'cbbaca45-556a-4416-ad03-bda598eaa7c8' (
+  call :CheckOffice "%1" "16ProjectStdXC2RVL_MAKC2R" "Project Standard 2016 C2R"
+  exit /b
+)
+if /i '%app%' equ 'b234abe3-0857-4f9c-b05a-4dc314f85557' (
+  call :CheckOffice "%1" "16VisioProXC2RVL_MAKC2R" "Visio Pro 2016 C2R"
+  exit /b
+)
+if /i '%app%' equ '361fe620-64f4-41b5-ba77-84f8e079b1f7' (
+  call :CheckOffice "%1" "16VisioStdXC2RVL_MAKC2R" "Visio Standard 2016 C2R"
+  exit /b
+)
+call :SelectKey %1
 exit /b
 ::=============================================================
 :CheckOffice15
-call :CheckOffice "%1" "dc981c6b-fc8e-420f-aa43-f8f33e5c0923" "MondoVL_MAK" "Office 2013 Mondo"
-call :CheckOffice "%1" "b322da9c-a2e2-4058-9e4e-f59a6970bd69" "ProPlusVL_MAK" "Office 2013 ProPlus"
-call :CheckOffice "%1" "e13ac10e-75d0-4aff-a0cd-764982cf541c" "VisioProVL_MAK" "Visio 2013 Pro"
-call :CheckOffice "%1" "4a5d124a-e620-44ba-b6ff-658961b33b9a" "ProjectProVL_MAK" "Project 2013 Pro"
-call :CheckOffice "%1" "b13afb38-cd79-4ae5-9f7f-eed058d750ca" "StandardVL_MAK" "Office 2013 Standard"
-call :CheckOffice "%1" "ac4efaf0-f81f-4f61-bdf7-ea32b02ab117" "VisioStdVL_MAK" "Visio 2013 Standard"
-call :CheckOffice "%1" "427a28d1-d17c-4abf-b717-32c780ba6f07" "ProjectStdVL_MAK" "Project 2013 Standard"
+if /i '%app%' equ 'dc981c6b-fc8e-420f-aa43-f8f33e5c0923' (
+  call :CheckOffice "%1" "MondoVL_MAK" "Office Mondo 2013"
+  exit /b
+)
+if /i '%app%' equ 'b322da9c-a2e2-4058-9e4e-f59a6970bd69' (
+  call :CheckOffice "%1" "ProPlusVL_MAK" "Office ProPlus 2013"
+  exit /b
+)
+if /i '%app%' equ 'b13afb38-cd79-4ae5-9f7f-eed058d750ca' (
+  call :CheckOffice "%1" "StandardVL_MAK" "Office Standard 2013"
+  exit /b
+)
+if /i '%app%' equ '4a5d124a-e620-44ba-b6ff-658961b33b9a' (
+  call :CheckOffice "%1" "ProjectProVL_MAK" "Project Pro 2013"
+  exit /b
+)
+if /i '%app%' equ '427a28d1-d17c-4abf-b717-32c780ba6f07' (
+  call :CheckOffice "%1" "ProjectStdVL_MAK" "Project Standard 2013"
+  exit /b
+)
+if /i '%app%' equ 'e13ac10e-75d0-4aff-a0cd-764982cf541c' (
+  call :CheckOffice "%1" "VisioProVL_MAK" "Visio Pro 2013"
+  exit /b
+)
+if /i '%app%' equ 'ac4efaf0-f81f-4f61-bdf7-ea32b02ab117' (
+  call :CheckOffice "%1" "VisioStdVL_MAK" "Visio Standard 2013"
+  exit /b
+)
+call :SelectKey %1
 exit /b
 ::=============================================================
 :CheckOffice14
@@ -650,37 +740,64 @@ for /f "tokens=2 delims==" %%G in ('"wmic path %_MicrosoftProduct% where (Name l
 for /f "tokens=2 delims==" %%G in ('"wmic path %_MicrosoftProduct% where (Name like '%%OfficeVisioPro-MAK%%') get LicenseStatus /value" %_Nul_2e%') do (
   set /a _vPro=%%G
 )
-call :CheckOffice "%1" "09ed9640-f020-400a-acd8-d7d867dfd9c2" "OfficeMondo-MAK" "Office 2010 Mondo"
-call :CheckOffice "%1" "6f327760-8c5c-417c-9b61-836a98287e0c" "ProPlus-MAK" "Office 2010 ProPlus" "ProPlusAcad-MAK" "Office 2010 ProPlus Academic"
-call :CheckOffice "%1" "df133ff7-bf14-4f95-afe3-7b48e7e331ef" "ProjectPro-MAK" "Project 2010 Pro"
-call :CheckOffice "%1" "5dc7bf61-5ec9-4996-9ccb-df806a2d0efe" "ProjectStd-MAK" "Project 2010 Standard"
-call :CheckOffice "%1" "9da2a678-fb6b-4e67-ab84-60dd6a9c819a" "Standard-MAK" "Office 2010 Standard"
-call :CheckOffice "%1" "ea509e87-07a1-4a45-9edc-eba5a39f36af" "SmallBusBasics-MAK" "Office 2010 Small Business"   
-call :CheckOffice "%1" "92236105-bb67-494f-94c7-7f7a607929bd" "VisioPrem-MAK" "Visio 2010 Premium" "VisioPro-MAK" "Visio 2010 Pro" 
+if /i '%app%' equ '09ed9640-f020-400a-acd8-d7d867dfd9c2' (
+  call :CheckOffice "%1" "Mondo-MAK" "Office Mondo 2010"
+  exit /b
+)
+if /i '%app%' equ '6f327760-8c5c-417c-9b61-836a98287e0c' (
+  call :CheckOffice "%1" "ProPlus-MAK" "Office ProPlus 2010" "ProPlusAcad-MAK" "Office Professional Academic 2010"
+  exit /b
+)
+if /i '%app%' equ '9da2a678-fb6b-4e67-ab84-60dd6a9c819a' (
+  call :CheckOffice "%1" "Standard-MAK" "Office Standard 2010"
+  exit /b
+)
+if /i '%app%' equ 'ea509e87-07a1-4a45-9edc-eba5a39f36af' (
+  call :CheckOffice "%1" "SmallBusBasics-MAK" "Office Home and Business 2010"
+  exit /b
+)
+if /i '%app%' equ 'df133ff7-bf14-4f95-afe3-7b48e7e331ef' (
+  call :CheckOffice "%1" "ProjectPro-MAK" "Project Pro 2010"
+  exit /b
+)
+if /i '%app%' equ '5dc7bf61-5ec9-4996-9ccb-df806a2d0efe' (
+  call :CheckOffice "%1" "ProjectStd-MAK" "Project Standard 2010"
+  exit /b
+)
+if /i '%app%' equ '92236105-bb67-494f-94c7-7f7a607929bd' (
+  call :CheckOffice "%1" "VisioPrem-MAK" "Visio Premium 2010" "VisioPro-MAK" "Visio Pro 2010"
+  exit /b
+)
 if defined _vPrem exit /b
-call :CheckOffice "%1" "e558389c-83c3-4b29-adfe-5e4d7f46c358" "VisioPro-MAK" "Visio 2010 Pro" "VisioStd-MAK" "Visio 2010 Standard"
+if /i '%app%' equ 'e558389c-83c3-4b29-adfe-5e4d7f46c358' (
+  call :CheckOffice "%1" "VisioPro-MAK" "Visio Pro 2010" "VisioStd-MAK" "Visio Standard 2010"
+  exit /b
+)
 if defined _vPro exit /b
-call :CheckOffice "%1" "9ed833ff-4f92-4f36-b370-8683a4f13275" "VisioStd-MAK" "Visio 2010 Standard"
+if /i '%app%' equ '9ed833ff-4f92-4f36-b370-8683a4f13275' (
+  call :CheckOffice "%1" "VisioStd-MAK" "Visio Standard 2010"
+  exit /b
+)
+call :SelectKey %1
 exit /b
 ::=============================================================
 :CheckOffice
-if /i '%~1' NEQ '%~2' exit /b
 set ls=0
 set ls2=0
-for /f "tokens=2 delims==" %%G in ('"wmic path %_MicrosoftProduct% where (Name like '%%Office%~3%%') get LicenseStatus /VALUE"') do (
+for /f "tokens=2 delims==" %%G in ('"wmic path %_MicrosoftProduct% where (Name like '%%Office%~2%%') get LicenseStatus /VALUE" %_Nul_2e%') do (
   set /a ls=%%G
 )
-if "%~5" NEQ "" (
-  for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Name like '%%Office%~5%%') get LicenseStatus /VALUE"') do (
+if "%~4" NEQ "" (
+  for /f "tokens=2 delims==" %%G in ('"wmic path %_MicrosoftProduct% where (Name like '%%Office%~4%%') get LicenseStatus /VALUE" %_Nul_2e%') do (
     set /a ls2=%%G
   )
-  if !ls2! EQU 1 (
-    echo Detected %~6 is permanently MAK activated.
+  if "!ls2!" EQU "1" (
+    echo Detected %5 is permanently MAK activated.
     exit /b
   )
 )
-if !ls! EQU 1 (
-  echo Detected %~4 is permanently MAK activated.
+if "!ls!" EQU "1" (
+  echo Detected %3 is permanently MAK activated.
   exit /b
 )
 :: If Office product is not permanently activated, Install GVLK and Activate
@@ -706,7 +823,7 @@ exit /b
 :VisualStudio
 :: Clear variable to avoid confliction if multiple Visual Studio versions installed
 set "_VS="
-if %_OSarch% EQU "64-bit" (
+if "%_OSarch%" EQU "64-bit" (
   set "_H64=SOFTWARE\WOW6432Node"
 ) else (
   set "_H64=SOFTWARE"
@@ -782,6 +899,19 @@ for /f "tokens=2 delims==" %%G in ('"wmic path %_MicrosoftProduct% where ID='%1'
   goto :%1 %_Nul_2% || goto :KeyNotFound
 )
 ::=============================================================
+:: Office 2019 Professional Plus C2R-P
+:0bc88885-718c-491d-921f-6f214349e79c
+set "_key=VQ9DP-NVHPH-T9HJC-J9PDT-KTQRG"
+goto :InstallKey
+:: Project 2019 Professional C2R-P
+:fc7c4d0c-2e85-4bb9-afd4-01ed1476b5e9
+set "_key=XM2V9-DN9HH-QB449-XDGKC-W2RMW"
+goto :InstallKey
+:: Visio 2019 Professional C2R-P
+:500f6619-ef93-4b75-bcb4-82819998a3ca
+set "_key=N2CG9-YD3YK-936X4-3WR82-Q3X4H"
+goto :InstallKey
+::=============================================================
 :: Office 2016 Mondo
 :9caabccb-61b1-4b4b-8bec-d10a3c3ac2ce
 set "_key=HFTND-W9MK4-8B7MJ-B6C4G-XQBR2"
@@ -842,19 +972,19 @@ goto :InstallKey
 :bb11badf-d8aa-470e-9311-20eaf80fe5cc
 set "_key=WXY84-JN2Q9-RBCCQ-3Q3J3-3PFJ6"
 goto :InstallKey
-:: Project 2016 Professional XC2RVL KMS ClientC2R
+:: Project 2016 Professional C2R-P
 :829b8110-0e6f-4349-bca4-42803577788d
 set "_key=WGT24-HCNMF-FQ7XH-6M8K7-DRTW9"
 goto :InstallKey
-:: Project 2016 Standard XC2RVL KMS ClientC2R
+:: Project 2016 Standard C2R-P
 :cbbaca45-556a-4416-ad03-bda598eaa7c8
 set "_key=D8NRQ-JTYM3-7J2DX-646CT-6836M"
 goto :InstallKey
-:: Visio 2016 Professional XC2RVL KMS ClientC2R
+:: Visio 2016 Professional C2R-P
 :b234abe3-0857-4f9c-b05a-4dc314f85557
 set "_key=69WXN-MBYV6-22PQG-3WGHK-RM6XC"
 goto :InstallKey
-:: Visio 2016 Standard XC2RVL KMS ClientC2R
+:: Visio 2016 Standard C2R-P
 :361fe620-64f4-41b5-ba77-84f8e079b1f7
 set "_key=NY48V-PPYYH-3F4PX-XJRKJ-W4423"
 goto :InstallKey
@@ -899,6 +1029,10 @@ goto :InstallKey
 :f7461d52-7c2b-43b2-8744-ea958e0bd09a
 set "_key=VGPNG-Y7HQW-9RHP7-TKPV3-BG7GB"
 goto :InstallKey
+:: OneDrive for Business 2013 (Groove)
+:fb4875ec-0c6b-450f-b82b-ab57d8d1677f
+set "_key=H7R7V-WPNXQ-WCYYC-76BGV-VT7GH"
+goto :InstallKey
 :: InfoPath 2013
 :a30b8040-d68a-423f-b0b5-9ce292ea5a8f
 set "_key=DKT8B-N7VXH-D963P-Q4PHY-F8894"
@@ -927,10 +1061,6 @@ goto :InstallKey
 :d9f5b1c6-5386-495a-88f9-9ad6b41ac9b3
 set "_key=6Q7VD-NX8JD-WJ2VH-88V73-4GBJ7"
 goto :InstallKey
-:: SharePoint Designer 2013 Retail
-:ba3e3833-6a7e-445a-89d0-7802a9a68588
-set "_key=GYJRG-NMYMF-VGBM4-T3QD4-842DW"
-goto :InstallKey
 ::=============================================================
 :: Office 2010 Professional Plus
 :6f327760-8c5c-417c-9b61-836a98287e0c
@@ -955,10 +1085,6 @@ goto :InstallKey
 :: SharePoint Workspace 2010 (Groove)
 :8947d0b8-c33b-43e1-8c56-9b674c052832
 set "_key=QYYW6-QP4CB-MBV6G-HYMCJ-4T3J4"
-goto :InstallKey
-:: SharePoint Designer 2010 Retail
-:b78df69e-0966-40b1-ae85-30a5134dedd0
-set "_key=H48K6-FB4Y6-P83GH-9J7XG-HDKKX"
 goto :InstallKey
 :: InfoPath 2010
 :ca6b6639-4ad6-40ae-a575-14dee07f6430
@@ -1129,6 +1255,10 @@ goto :InstallKey
 :: Windows Server 2016 Azure Core
 :3dbf341b-5f6c-4fa7-b936-699dce9e263f
 set "_key=VP34G-4NPPG-79JTQ-864T4-R3MQX"
+goto :InstallKey
+:: Windows Server 2016 ARM64
+:43d9af6e-5e86-4be8-a797-d072a046896c
+set "_key=K9FYF-G6NCK-73M32-XMVPY-F9DRR"
 goto :InstallKey
 ::=============================================================
 :: Windows 8.1 Professional
