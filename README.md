@@ -1,4 +1,4 @@
-# KMS-VL-ALL-7.0beta 2018-01-25 11:48:50 UTC  
+# 7.0RC [2018-03-28]    
 ## How to use ?
 #### For KMS Activation of Volume Licensed Products:
 1. Run KMS-VL-ALL.cmd as Administrator.  
