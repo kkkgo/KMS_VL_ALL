@@ -2,13 +2,19 @@
 set /a _Debug=0
 ::=============================================================
 :: Get Administrator Rights
+set _Args=%*
+set _Args=%_Args:"=""%
 fltmc 1>nul 2>nul || (
   cd /d "%~dp0"
-  cmd /u /c echo Set UAC = CreateObject^("Shell.Application"^) : UAC.ShellExecute "cmd.exe", "/k cd ""%~sdp0"" && %~s0", "", "runas", 1 > "%temp%\GetAdmin.vbs"
+  cmd /u /c echo Set UAC = CreateObject^("Shell.Application"^) : UAC.ShellExecute "cmd.exe", "/k cd ""%~sdp0"" && %~s0 %_Args%", "", "runas", 1 > "%temp%\GetAdmin.vbs"
   "%temp%\GetAdmin.vbs"
   del /f /q "%temp%\GetAdmin.vbs" 1>nul 2>nul
   exit
 )
+::=============================================================
+:: Define switches
+echo %*| find /i "-createtask" >nul&& set /a _Task=1
+echo %*| find /i "-renewalonly" >nul&& set /a _Task=2
 ::=============================================================
 :: No Debug, Define the nul suppressors
 if %_Debug% EQU 0 (
@@ -29,15 +35,18 @@ if %_Debug% NEQ 0 (
   echo The window will be closed when finished
 )
 if "%1" NEQ "" (
-  @echo on
+  @echo on & prompt $g
   goto :Begin
 )
 cd /d "%~dp0"
-call "%~s0" debug >"%~sdp0KMS_VL_ALL_Debug.log" 2>&1
+cmd /c "%~s0" debug>"%~dpn0.tmp" 2>&1
+cmd /u /c type "%~dpn0.tmp">"%~sdp0KMS_VL_ALL_Debug.log"
+del "%~dpn0.tmp"
+exit/b
 ::=============================================================
 :Begin
 :: Set Title of the Script; Color [Background][Text] in hex (0 to F)
-title KMS-VL-ALL-7.0RC [2018-03-28]
+title KMS-VL-ALL-7.0RC2 [2018-06-07]
 color 07
 ::===================
 :: Get Fully Qualified FileName of the Script
@@ -56,7 +65,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 set /a _OfflineMode=1
 ::===================
 :: Can be 0 (Delete Auto-Renewal-Task OR Manual-Mode) | 1 (Create Auto-Renewal-Task)
-set /a _Task=0
+if not defined _Task set /a _Task=0
 ::===================
 :: Can be ONSTART | ONLOGON | MINUTE(1-1439) | HOURLY(1-23) | DAILY(1-365) | WEEKLY(1-52) | MONTHLY(1-12)
 set "_TaskFrequency=ONLOGON"
@@ -66,18 +75,18 @@ set /a _TaskModifier=1
 :: Set Parameters for KMS Server
 ::===================
 :: Custom Windows ePID
-set "_WindowsEPID=03612-00206-471-452343-03-1033-14393.0000-1082017"
+set "_WindowsEPID=03612-00206-471-452343-03-1033-14393.0000-1082018"
 :: Custom Windows 10 Enterprise G/GN ePID
-set "_WindowsGEPID=03612-00206-471-452343-03-1033-14393.0000-1082017"
+set "_WindowsGEPID=03612-00206-471-452343-03-1033-14393.0000-1082018"
 ::===================
 :: Custom Office 2010 ePID
-set "_Office2010EPID=03612-00096-199-303490-03-1033-14393.0000-1082017"
+set "_Office2010EPID=03612-00096-199-303490-03-1033-14393.0000-1082018"
 ::===================
 :: Custom Office 2013 ePID
-set "_Office2013EPID=03612-00206-234-394838-03-1033-14393.0000-1082017"
+set "_Office2013EPID=03612-00206-234-394838-03-1033-14393.0000-1082018"
 ::===================
 :: Custom Office 2016 ePID
-set "_Office2016EPID=03612-00206-437-938923-03-1033-14393.0000-1082017"
+set "_Office2016EPID=03612-00206-437-938923-03-1033-14393.0000-1082018"
 ::===================
 :: Can be Custom HardwareID obtained from a Real KMS Server Host
 set "_HardwareID=3A1C049600B60076"
@@ -199,22 +208,22 @@ if %_Task% EQU 1 (
     schtasks /delete /tn "%_TaskName%" /f %_Nul_1_2%
   )
   if /i %_TaskFrequency% EQU ONSTART (
-    schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FileName!" %_Nul_1_2% && (
+    schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FileName! -renewalonly" %_Nul_1_2% && (
       echo.
       echo Auto-Renewal Task is Created.
     )
   ) else if /i %_TaskFrequency% EQU ONLOGON (
-    schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FileName!" %_Nul_1_2% && (
+    schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /tr "!_FileName! -renewalonly" %_Nul_1_2% && (
       echo.
       echo Auto-Renewal Task is Created.
     )
   ) else (
-    schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /mo "%_TaskModifier%" /tr "!_FileName!" %_Nul_1_2% && (
+    schtasks /create /tn "%_TaskName%" /ru "SYSTEM" /sc "%_TaskFrequency%" /mo "%_TaskModifier%" /tr "!_FileName! -renewalonly" %_Nul_1_2% && (
       echo.
       echo Auto-Renewal Task is Created.
     )
   )
-) else (
+) else if %_Task% EQU 0 (
   schtasks /query /fo list %_Nul_2% | findstr /i "%_TaskName%" %_Nul_1% && (
     schtasks /delete /tn "%_TaskName%" /f %_Nul_1_2%
     echo.
@@ -233,8 +242,9 @@ if %_OfflineMode% EQU 1 (
   if %_OSPS% NEQ 0 (
     call :StopService "osppsvc"
   )
-  REM Copy the DLL Injection files to system32 folder based on OS architecture
-  robocopy "%_OSarch%" "%SystemRoot%\system32" SppExtComObjHook.dll SppExtComObjPatcher.exe /njh /njs %_Nul_1_2%
+  REM Symlink the DLL Injection files to system32 folder based on OS architecture
+  mklink "%SystemRoot%\system32\SppExtComObjHook.dll" "!_FileDir!%_OSarch%\SppExtComObjHook.dll" %_Nul_1_2%
+  mklink "%SystemRoot%\system32\SppExtComObjPatcher.exe" "!_FileDir!%_OSarch%\SppExtComObjPatcher.exe" %_Nul_1_2%
   REM Create registry keys for DLL Hook
   call :CreateIFEOEntry "SppExtComObj.exe"
   if %_OSPS% NEQ 0 (
