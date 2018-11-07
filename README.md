@@ -2,6 +2,14 @@
 
 ## Supported Volume Products:  
 [see here](https://github.com/lixuy/vlmcsd#valid-apps)
+>Server/Windows  
+https://docs.microsoft.com/zh-cn/windows-server/get-started/kmsclientkeys  
+office2016 / office 2019  
+https://docs.microsoft.com/zh-cn/DeployOffice/vlactivation/gvlks   
+office2013   
+https://technet.microsoft.com/ZH-CN/library/dn385360.aspx   
+office2010  
+https://technet.microsoft.com/ZH-CN/library/ee624355(v=office.14).aspx   
 
 ## Auto Renewal:
 
