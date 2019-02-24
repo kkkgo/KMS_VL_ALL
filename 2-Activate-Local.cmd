@@ -1,4 +1,5 @@
 @echo off
+cls
 set _Debug=0
 
 set Online=0
@@ -11,9 +12,20 @@ set KMS38=1
 
 set FixedEPID=1
 
-%windir%\system32\reg.exe query "HKU\S-1-5-19" >nul 2>&1 || goto :E_Admin
+set "SysPath=%Windir%\System32"
+if exist "%Windir%\Sysnative\reg.exe" (set "SysPath=%Windir%\Sysnative")
+set "Path=%SysPath%;%Windir%;%SysPath%\Wbem;%SysPath%\WindowsPowerShell\v1.0\"
+
+fsutil dirty query %systemdrive% >nul 2>&1 || goto :E_Admin
 if %Online%==0 if not exist "%SystemRoot%\system32\SppExtComObj*.dll" goto :E_Patcher
 if %Online%==0 set KMS_IP=172.16.0.2
+
+set "_tempdir=%SystemRoot%\Temp"
+set "_workdir=%~dp0"
+set "_logpath=%~dpn0"
+dir /b /adr "%_workdir%" 1>nul 2>nul && set "_logpath=%_tempdir%\%~n0"
+if "%_workdir:~0,2%"=="\\" set "_logpath=%_tempdir%\%~n0"
+setlocal EnableExtensions EnableDelayedExpansion
 
 if %_Debug% EQU 0 (
   set "_Nul_1=1>nul"
@@ -31,16 +43,13 @@ if %_Debug% EQU 0 (
   echo The window will be closed when finished
   @echo on
   @prompt $G
-  @call :Begin >"%~dpn0.tmp" 2>&1 &cmd /u /c type "%~dpn0.tmp">"%~dpn0_Debug.log"&del "%~dpn0.tmp"
+  @call :Begin >"!_logpath!.tmp" 2>&1 &cmd /u /c type "!_logpath!.tmp">"!_logpath!_Debug.log"&del "!_logpath!.tmp"
 )
-exit
+exit /b
 
 :Begin
 color 1F
 title KMS_VL_ALL Auto Renewal
-setlocal EnableExtensions EnableDelayedExpansion
-cd /d "%~dp0"
-IF /I "%PROCESSOR_ARCHITECTURE%" EQU "AMD64" (set xOS=x64) else (set xOS=Win32)
 for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 if %winbuild% GEQ 9600 (
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /f /v NoGenTicket /t REG_DWORD /d 1 %_Nul_1_2%
@@ -75,12 +84,7 @@ for %%A in (14,15,16,19) do call :officeLoc %%A
 call :SPP
 call :OSPP
 if %Online%==0 if %FixedEPID%==1 call :ePID
-if %winbuild% GEQ 9200 (
-schtasks /query /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" %_Nul_1_2% || schtasks /create /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" /xml "%~dp0Win32\SvcTrigger.xml" /f %_Nul_1_2%
-)
-del /f /q c2rchk.txt %_Nul_1_2%
-del /f /q sppchk.txt %_Nul_1_2%
-del /f /q osppchk.txt %_Nul_1_2%
+if exist "!_tempdir!\*chk.txt" del /f /q "!_tempdir!\*chk.txt"
 net stop sppsvc /y %_Nul_1_2% || sc stop sppsvc %_Nul_1_2%
 sc start sppsvc trigger=timer;sessionid=0 %_Nul_1_2%
 echo.
@@ -115,10 +119,10 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 exit /b
 
 :sppchkoff
-wmic path %spp% where ID='%app%' get Name > sppchk.txt
-find /i "Office 15" sppchk.txt %_Nul_1% && (if %loc_off15% equ 0 exit /b)
-find /i "Office 16" sppchk.txt %_Nul_1% && (if %loc_off16% equ 0 exit /b)
-find /i "Office 19" sppchk.txt %_Nul_1% && (if %loc_off19% equ 0 exit /b)
+wmic path %spp% where ID='%app%' get Name > "!_tempdir!\sppchk.txt"
+find /i "Office 15" "!_tempdir!\sppchk.txt" %_Nul_1% && (if %loc_off15% equ 0 exit /b)
+find /i "Office 16" "!_tempdir!\sppchk.txt" %_Nul_1% && (if %loc_off16% equ 0 exit /b)
+find /i "Office 19" "!_tempdir!\sppchk.txt" %_Nul_1% && (if %loc_off19% equ 0 exit /b)
 set office=1
 wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul_2% | findstr /i "%app%" %_Nul_1% && (echo.&call :activate %app%&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
@@ -191,11 +195,11 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 exit /b
 
 :osppchk
-wmic path %spp% where ID='%app%' get Name > osppchk.txt
-find /i "Office 14" osppchk.txt %_Nul_1% && (if %loc_off14% equ 0 exit /b)
-find /i "Office 15" osppchk.txt %_Nul_1% && (if %loc_off15% equ 0 exit /b)
-find /i "Office 16" osppchk.txt %_Nul_1% && (if %loc_off16% equ 0 exit /b)
-find /i "Office 19" osppchk.txt %_Nul_1% && (if %loc_off19% equ 0 exit /b)
+wmic path %spp% where ID='%app%' get Name > "!_tempdir!\osppchk.txt"
+find /i "Office 14" "!_tempdir!\osppchk.txt" %_Nul_1% && (if %loc_off14% equ 0 exit /b)
+find /i "Office 15" "!_tempdir!\osppchk.txt" %_Nul_1% && (if %loc_off15% equ 0 exit /b)
+find /i "Office 16" "!_tempdir!\osppchk.txt" %_Nul_1% && (if %loc_off16% equ 0 exit /b)
+find /i "Office 19" "!_tempdir!\osppchk.txt" %_Nul_1% && (if %loc_off19% equ 0 exit /b)
 set office=0
 wmic path %spp% where (PartialProductKey is not NULL) get ID | findstr /i "%app%" %_Nul_1_2% && (echo.&call :activate %app%&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
@@ -386,10 +390,10 @@ for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\%1.0\Commo
 for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul_2e%') do if exist "%%b\OSPP.VBS" set loc_off%1=1
 
 if %1 equ 16 if defined _C2R (
-for /f "skip=2 tokens=2*" %%a in ('reg query %_C2R% /v ProductReleaseIds') do echo %%b> c2rchk.txt
+for /f "skip=2 tokens=2*" %%a in ('reg query %_C2R% /v ProductReleaseIds') do echo %%b> "!_tempdir!\c2rchk.txt"
 for %%a in (Mondo,ProPlus,Standard,ProjectProX,ProjectStdX,ProjectPro,ProjectStd,VisioProX,VisioStdX,VisioPro,VisioStd,Access,Excel,OneNote,Outlook,PowerPoint,Publisher,SkypeforBusiness,Word) do (
-  findstr /I /C:"%%aVolume" c2rchk.txt %_Nul_1% && set loc_off%1=1
-  findstr /I /C:"%%aRetail" c2rchk.txt %_Nul_1% && set loc_off%1=1
+  findstr /I /C:"%%aVolume" "!_tempdir!\c2rchk.txt" %_Nul_1% && set loc_off%1=1
+  findstr /I /C:"%%aRetail" "!_tempdir!\c2rchk.txt" %_Nul_1% && set loc_off%1=1
   )
 exit /b
 )
@@ -402,9 +406,15 @@ exit /b
 echo.
 set "key="
 for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where ID='%1' get Name /VALUE"') do echo Installing Key for: %%A
-for /f %%A in ('cscript //Nologo Win32\key.vbs %1') do set "key=%%A"
+call "!_workdir!\Win32\key.cmd" %1
 if "%key%" EQU "" (echo Could not find matching KMS Client key&exit /b)
 wmic path %sps% where version='%ver%' call InstallProductKey ProductKey="%key%" %_Nul_1_2%
+set ERRORCODE=%ERRORLEVEL%
+if %ERRORCODE% neq 0 (
+cmd /c exit /b %ERRORCODE%
+echo Failed: 0x!=ExitCode!
+exit /b
+)
 
 :activate
 wmic path %spp% where ID='%1' call ClearKeyManagementServiceMachine %_Nul_1_2%
@@ -427,8 +437,8 @@ if %gpr% gtr 259200 (echo Windows 10 EnterpriseG/EnterpriseGN Activation Success
 if %gpr% equ 259200 (
 echo Product Activation Successful
 ) else (
-call cmd /c exit /b %ERRORCODE%
-echo Product Activation Failed: 0x%=ExitCode%
+cmd /c exit /b %ERRORCODE%
+echo Product Activation Failed: 0x!=ExitCode!
 )
 echo Remaining Period: %gpr2% days ^(%gpr% minutes^)
 exit /b

@@ -1,17 +1,20 @@
 @ECHO OFF
-cd /d "%~dp0" && ( if exist "%temp%\getadmin.vbs" del "%temp%\getadmin.vbs" ) && fsutil dirty query %systemdrive% 1>nul 2>nul || (  cmd /u /c echo Set UAC = CreateObject^("Shell.Application"^) : UAC.ShellExecute "cmd.exe", "/k cd ""%~dp0"" && ""%~dpnx0""", "", "runas", 1 >> "%temp%\getadmin.vbs" && "%temp%\getadmin.vbs" 1>nul 2>nul && exit /B )
-
+set "SysPath=%Windir%\System32"
+if exist "%Windir%\Sysnative\reg.exe" (set "SysPath=%Windir%\Sysnative")
+set "Path=%SysPath%;%Windir%;%SysPath%\Wbem;%SysPath%\WindowsPowerShell\v1.0\"
+set "_tempdir=%temp%"
+setlocal EnableExtensions EnableDelayedExpansion
 ECHO ************************************************************
 ECHO ***                   Windows Status                     ***
 ECHO ************************************************************
-COPY /Y %systemroot%\System32\slmgr.vbs "%temp%\slmgr.vbs" >NUL 2>&1
-cscript //nologo "%temp%\slmgr.vbs" /dli
-cscript //nologo "%temp%\slmgr.vbs" /xpr
-DEL /F /Q "%temp%\slmgr.vbs" >NUL 2>&1
+COPY /Y %Windir%\System32\slmgr.vbs "!_tempdir!\slmgr.vbs" >NUL 2>&1
+cscript //nologo "!_tempdir!\slmgr.vbs" /dli || (ECHO Error running vbs script&DEL /F /Q "!_tempdir!\slmgr.vbs"&GOTO :End)
+cscript //nologo "!_tempdir!\slmgr.vbs" /xpr
+DEL /F /Q "!_tempdir!\slmgr.vbs" >NUL 2>&1
 ECHO ____________________________________________________________________________
 
 :office2016
-IF EXIST %systemroot%\SysWOW64\cmd.exe (SET bit=64&SET wow=1) ELSE (SET bit=32&SET wow=0)
+IF EXIST %Windir%\SysWOW64\cmd.exe (SET bit=64&SET wow=1) ELSE (SET bit=32&SET wow=0)
 SET office=
 FOR /F "tokens=2*" %%a IN ('"REG QUERY HKLM\SOFTWARE\Microsoft\Office\16.0\Common\InstallRoot /v Path" 2^>NUL') DO (SET "office=%%b")
 IF EXIST "%office%\OSPP.VBS" (
@@ -122,4 +125,4 @@ cscript //nologo "%office%\OSPP.VBS" /dstatus
 ECHO.
 ECHO Press any key to exit...
 PAUSE >NUL
-EXIT
+EXIT /B

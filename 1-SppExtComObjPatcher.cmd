@@ -1,4 +1,5 @@
 @echo off
+cls
 set ClearKMSCache=1
 
 set KMS_Emulation=1
@@ -13,19 +14,17 @@ set Office2013=Random
 set Office2016=Random
 set Office2019=Random
 
-%windir%\system32\reg.exe query "HKU\S-1-5-19" >nul 2>&1 || (
-echo ==== ERROR ====
-echo This script require administrator privileges.
-echo To do so, right click on this script and select 'Run as administrator'
-echo.
-echo Press any key to exit...
-pause >nul
-goto :eof
-)
+set "SysPath=%Windir%\System32"
+if exist "%Windir%\Sysnative\reg.exe" (set "SysPath=%Windir%\Sysnative")
+set "Path=%SysPath%;%Windir%;%SysPath%\Wbem;%SysPath%\WindowsPowerShell\v1.0\"
+
+fsutil dirty query %systemdrive% >nul 2>&1 || goto :E_Admin
+
 title SppExtComObjPatcher
+set "_workdir=%~dp0"
+set xOS=x64
+if /i %PROCESSOR_ARCHITECTURE%==x86 (if "%PROCESSOR_ARCHITEW6432%"=="" set xOS=Win32)
 setlocal EnableExtensions EnableDelayedExpansion
-cd /d "%~dp0"
-IF /I "%PROCESSOR_ARCHITECTURE%" EQU "AMD64" (set xOS=x64) else (set xOS=Win32)
 set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
 set "OSPP=HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"
 set "SPPk=SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform"
@@ -60,7 +59,8 @@ WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Ad
 )
 echo.
 echo Copying Files...
-copy /y "%xOS%\SppExtComObjHook.dll" "%SystemRoot%\system32" >nul 2>&1 && (echo Copied SppExtComObjHook.dll) || (echo SppExtComObjHook.dll Failed&pause&exit)
+if exist "%SystemRoot%\system32\SppExtComObjPatcher.*" del /f /q "%SystemRoot%\system32\SppExtComObjPatcher.*" %_Nul_1_2%
+copy /y "!_workdir!\!xOS!\SppExtComObjHook.dll" "%SystemRoot%\system32" >nul 2>&1 && (echo Copied SppExtComObjHook.dll) || (echo SppExtComObjHook.dll Failed&pause&exit /b)
 echo.
 echo Creating Registry Entries...
 if %OSType% EQU Win8 (
@@ -73,6 +73,9 @@ if %OSType% EQU Win7 if %SppHook% NEQ 0 (
 )
     echo osppsvc.exe of Office %OffVer%
     call :CreateIFEOEntry osppsvc.exe
+if %winbuild% GEQ 9200 (
+schtasks /query /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1 || schtasks /create /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" /xml "!_workdir!\Win32\SvcTrigger.xml" /f >nul 2>&1
+)
 goto :End
 
 :uninst
@@ -112,9 +115,11 @@ echo Clearing KMS Cache...
 call :cKMS SoftwareLicensingProduct SoftwareLicensingService
 if %OsppHook% NEQ 0 call :cKMS OfficeSoftwareProtectionProduct OfficeSoftwareProtectionService
 )
+if %winbuild% GEQ 9200 (
+schtasks /query /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1 && schtasks /delete /f /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1
+)
 if %winbuild% GEQ 9600 (
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /v "NoGenTicket" /f >nul 2>&1
-schtasks /delete /f /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1
 WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\system32\SppExtComObjHook.dll" >nul 2>&1
 WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\system32\SppExtComObjPatcher.dll" >nul 2>&1
 WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\system32\SppExtComObjPatcher.exe" >nul 2>&1
@@ -181,6 +186,15 @@ goto :EOF
 :Clear
 wmic path %spp% where ID='%app%' call ClearKeyManagementServiceMachine >nul 2>&1
 wmic path %spp% where ID='%app%' call ClearKeyManagementServicePort >nul 2>&1
+goto :EOF
+
+:E_Admin
+echo ==== ERROR ====
+echo This script require administrator privileges.
+echo To do so, right click on this script and select 'Run as administrator'
+echo.
+echo Press any key to exit...
+pause >nul
 goto :EOF
 
 :UnsupportedVersion

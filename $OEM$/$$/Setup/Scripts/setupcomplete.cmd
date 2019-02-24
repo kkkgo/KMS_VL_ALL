@@ -13,10 +13,10 @@ set Office2019=Random
 
 set FixedEPID=1
 
-  set "_Nul_1=1>nul"
-  set "_Nul_2=2>nul"
-  set "_Nul_2e=2^>nul"
-  set "_Nul_1_2=1>nul 2>nul"
+set "SysPath=%Windir%\System32"
+if exist "%Windir%\Sysnative\reg.exe" (set "SysPath=%Windir%\Sysnative")
+set "Path=%SysPath%;%Windir%;%SysPath%\Wbem;%SysPath%\WindowsPowerShell\v1.0\"
+set "PSModulePath=%ProgramFiles%\WindowsPowerShell\Modules;%SysPath%\WindowsPowerShell\v1.0\Modules"
 
 set W1nd0ws=1
 set spp=SoftwareLicensingProduct
@@ -26,9 +26,11 @@ WMIC PATH %spp% WHERE (Name like 'Windows%%' and PartialProductKey is not NULL) 
 WMIC PATH %sps% WHERE version='%ver%' CALL RefreshLicenseStatus >nul 2>&1
 WMIC PATH %spp% WHERE LicenseStatus=1 GET Name 2>nul | findstr /i "Windows" >nul && (set "W1nd0ws=")
 
+set "_tempdir=%SystemRoot%\Temp"
+set "_workdir=%~dp0"
+set xOS=x64
+if /i %PROCESSOR_ARCHITECTURE%==x86 (if "%PROCESSOR_ARCHITEW6432%"=="" set xOS=Win32)
 setlocal EnableExtensions EnableDelayedExpansion
-cd /d "%~dp0"
-IF /I "%PROCESSOR_ARCHITECTURE%" EQU "AMD64" (set xOS=x64) else (set xOS=Win32)
 set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
 set "OSPP=HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"
 set "SPPk=SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform"
@@ -71,7 +73,8 @@ SET EditionID=%EditionWMI%
 :Main
 call :StopService sppsvc
 if %OsppHook% NEQ 0 call :StopService osppsvc
-copy /y "%xOS%\SppExtComObjHook.dll" "%SystemRoot%\system32" >nul 2>&1
+if exist "%SystemRoot%\system32\SppExtComObjPatcher.*" del /f /q "%SystemRoot%\system32\SppExtComObjPatcher.*" >nul 2>&1
+copy /y "!_workdir!\!xOS!\SppExtComObjHook.dll" "%SystemRoot%\system32" >nul 2>&1
 if %OSType% EQU Win8 call :CreateIFEOEntry SppExtComObj.exe
 if %OSType% EQU Win7 if %SppHook% NEQ 0 call :CreateIFEOEntry sppsvc.exe
 call :CreateIFEOEntry osppsvc.exe
@@ -85,9 +88,7 @@ if %winbuild% GEQ 9200 (
 schtasks /query /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" 1>nul 2>nul || schtasks /create /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" /xml "%~dp0Win32\SvcTrigger.xml" /f >nul 2>&1
 )
 attrib -R -A -S -H *.*
-del /f /q c2rchk.txt >nul 2>&1
-del /f /q sppchk.txt >nul 2>&1
-del /f /q osppchk.txt >nul 2>&1
+if exist "!_tempdir!\*chk.txt" del /f /q "!_tempdir!\*chk.txt"
 exit /b
 
 :StopService
@@ -133,10 +134,10 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 exit /b
 
 :sppchkoff
-wmic path %spp% where ID='%app%' get Name > sppchk.txt
-find /i "Office 15" sppchk.txt 1>nul && (if %loc_off15% equ 0 exit /b)
-find /i "Office 16" sppchk.txt 1>nul && (if %loc_off16% equ 0 exit /b)
-find /i "Office 19" sppchk.txt 1>nul && (if %loc_off19% equ 0 exit /b)
+wmic path %spp% where ID='%app%' get Name > "!_tempdir!\sppchk.txt"
+find /i "Office 15" "!_tempdir!\sppchk.txt" 1>nul && (if %loc_off15% equ 0 exit /b)
+find /i "Office 16" "!_tempdir!\sppchk.txt" 1>nul && (if %loc_off16% equ 0 exit /b)
+find /i "Office 19" "!_tempdir!\sppchk.txt" 1>nul && (if %loc_off19% equ 0 exit /b)
 set office=1
 wmic path %spp% where (PartialProductKey is not NULL) get ID 2>nul | findstr /i "%app%" 1>nul && (call :activate %app%&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
@@ -202,11 +203,11 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 exit /b
 
 :osppchk
-wmic path %spp% where ID='%app%' get Name > osppchk.txt
-find /i "Office 14" osppchk.txt 1>nul && (if %loc_off14% equ 0 exit /b)
-find /i "Office 15" osppchk.txt 1>nul && (if %loc_off15% equ 0 exit /b)
-find /i "Office 16" osppchk.txt 1>nul && (if %loc_off16% equ 0 exit /b)
-find /i "Office 19" osppchk.txt 1>nul && (if %loc_off19% equ 0 exit /b)
+wmic path %spp% where ID='%app%' get Name > "!_tempdir!\osppchk.txt"
+find /i "Office 14" "!_tempdir!\osppchk.txt" 1>nul && (if %loc_off14% equ 0 exit /b)
+find /i "Office 15" "!_tempdir!\osppchk.txt" 1>nul && (if %loc_off15% equ 0 exit /b)
+find /i "Office 16" "!_tempdir!\osppchk.txt" 1>nul && (if %loc_off16% equ 0 exit /b)
+find /i "Office 19" "!_tempdir!\osppchk.txt" 1>nul && (if %loc_off19% equ 0 exit /b)
 set office=0
 wmic path %spp% where (PartialProductKey is not NULL) get ID | findstr /i "%app%" >nul 2>&1 && (call :activate %app%&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
@@ -389,10 +390,10 @@ for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\%1.0\Commo
 for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\%1.0\Common\InstallRoot /v Path" 2^>nul') do if exist "%%b\OSPP.VBS" set loc_off%1=1
 
 if %1 equ 16 if defined _C2R (
-for /f "skip=2 tokens=2*" %%a in ('reg query %_C2R% /v ProductReleaseIds') do echo %%b> c2rchk.txt
+for /f "skip=2 tokens=2*" %%a in ('reg query %_C2R% /v ProductReleaseIds') do echo %%b> "!_tempdir!\c2rchk.txt"
 for %%a in (Mondo,ProPlus,Standard,ProjectProX,ProjectStdX,ProjectPro,ProjectStd,VisioProX,VisioStdX,VisioPro,VisioStd,Access,Excel,OneNote,Outlook,PowerPoint,Publisher,SkypeforBusiness,Word) do (
-  findstr /I /C:"%%aVolume" c2rchk.txt 1>nul && set loc_off%1=1
-  findstr /I /C:"%%aRetail" c2rchk.txt 1>nul && set loc_off%1=1
+  findstr /I /C:"%%aVolume" "!_tempdir!\c2rchk.txt" 1>nul && set loc_off%1=1
+  findstr /I /C:"%%aRetail" "!_tempdir!\c2rchk.txt" 1>nul && set loc_off%1=1
   )
 exit /b
 )
@@ -403,9 +404,11 @@ exit /b
 
 :insKey
 set "key="
-for /f %%A in ('cscript //Nologo Win32\key.vbs %1') do set "key=%%A"
+call "!_workdir!\Win32\key.cmd" %1
 if "%key%" EQU "" (exit /b)
 wmic path %sps% where version='%ver%' call InstallProductKey ProductKey="%key%" >nul 2>&1
+set ERRORCODE=%ERRORLEVEL%
+if %ERRORCODE% neq 0 exit /b
 
 :activate
 wmic path %spp% where ID='%1' call ClearKeyManagementServiceMachine >nul 2>&1
