@@ -1,4 +1,4 @@
-# KMS_VL_ALL - Smart Activation Script (Version 28)
+# KMS_VL_ALL - Smart Activation Script (Version 29)
 
 ## Supported Volume Products:  
 [see here](https://github.com/lixuy/vlmcsd#valid-apps)
