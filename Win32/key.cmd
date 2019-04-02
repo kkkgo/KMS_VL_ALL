@@ -1,5 +1,5 @@
 if "%~1"=="" exit /b
-goto :%1 || exit /b
+goto :%1 2>nul || exit /b
 
 :: Windows 10 [RS5]
 :32d2fab3-e4a8-42c2-923b-4bf4fd13e6ee

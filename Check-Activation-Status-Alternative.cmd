@@ -6,11 +6,11 @@ set osps=OfficeSoftwareProtectionService
 set winApp=55c92734-d682-4d71-983e-d6ec3f16059f
 set o14App=59a52881-a989-479d-af46-f275c6370663
 set o15App=0ff1ce15-a989-479d-af46-f275c6370663
-for %%a in (spp_get,ospp_get,W1nd0ws,sppw,0ff1ce15,sppo,osppsvc,ospp14,ospp15) do set "%%a="
-for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
+for %%# in (spp_get,ospp_get,W1nd0ws,sppw,0ff1ce15,sppo,osppsvc,ospp14,ospp15) do set "%%#="
+for /f "tokens=6 delims=[]. " %%# in ('ver') do set winbuild=%%#
 set "spp_get=Description, DiscoveredKeyManagementServiceMachineName, DiscoveredKeyManagementServiceMachinePort, EvaluationEndDate, GracePeriodRemaining, ID, KeyManagementServiceMachine, KeyManagementServicePort, KeyManagementServiceProductKeyID, LicenseStatus, LicenseStatusReason, Name, PartialProductKey, ProductKeyID, VLActivationInterval, VLRenewalInterval"
+set "ospp_get=%spp_get%"
 if %winbuild% geq 9200 set "spp_get=%spp_get%, DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled"
-set "ospp_get=Description, DiscoveredKeyManagementServiceMachineName, DiscoveredKeyManagementServiceMachinePort, EvaluationEndDate, GracePeriodRemaining, ID, KeyManagementServiceMachine, KeyManagementServicePort, KeyManagementServiceProductKeyID, LicenseStatus, LicenseStatusReason, Name, PartialProductKey, ProductKeyID, VLActivationInterval, VLRenewalInterval"
 
 set "SysPath=%Windir%\System32"
 if exist "%Windir%\Sysnative\reg.exe" (set "SysPath=%Windir%\Sysnative")
@@ -32,8 +32,8 @@ echo.
 echo Error: product key not found.
 goto :SPPo
 )
-for /f "tokens=2 delims==" %%a in ('"wmic path %spp% where (ApplicationID='%winApp%' and PartialProductKey is not null) get ID /value"') do (
-  set "chkID=%%a"
+for /f "tokens=2 delims==" %%# in ('"wmic path %spp% where (ApplicationID='%winApp%' and PartialProductKey is not null) get ID /value"') do (
+  set "chkID=%%#"
   call :Property "%spp%" "%sps%" "%spp_get%"
   call :Output
   echo ____________________________________________________________________________
@@ -49,8 +49,8 @@ goto :End
 echo ************************************************************
 echo ***                   Office Status                      ***
 echo ************************************************************
-for /f "tokens=2 delims==" %%a in ('"wmic path %spp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
-  set "chkID=%%a"
+for /f "tokens=2 delims==" %%# in ('"wmic path %spp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
+  set "chkID=%%#"
   call :Property "%spp%" "%sps%" "%spp_get%"
   call :Output
   echo ____________________________________________________________________________
@@ -66,15 +66,15 @@ echo ************************************************************
 echo ***                   Office Status                      ***
 echo ************************************************************
 )
-if defined ospp15 for /f "tokens=2 delims==" %%a in ('"wmic path %ospp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
-  set "chkID=%%a"
+if defined ospp15 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
+  set "chkID=%%#"
   call :Property "%ospp%" "%osps%" "%ospp_get%"
   call :Output
   echo ____________________________________________________________________________
   echo.
 )
-if defined ospp14 for /f "tokens=2 delims==" %%a in ('"wmic path %ospp% where (ApplicationID='%o14App%' and PartialProductKey is not null) get ID /value"') do (
-  set "chkID=%%a"
+if defined ospp14 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (ApplicationID='%o14App%' and PartialProductKey is not null) get ID /value"') do (
+  set "chkID=%%#"
   call :Property "%ospp%" "%osps%" "%ospp_get%"
   call :Output
   echo ____________________________________________________________________________
@@ -87,10 +87,10 @@ wmic path %1 where (ApplicationID='%2' and PartialProductKey is not null) get ID
 exit /b
 
 :Property
-for %%a in (%~3) do set "%%a="
-if %~1 equ %ospp% for %%a in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%a="
+for %%# in (%~3) do set "%%#="
+if %~1 equ %ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
 set "KmsClient="
-for /f "tokens=* delims=" %%a in ('"wmic path %~1 where (ID='%chkID%') get %~3 /value" ^| findstr ^=') do set "%%a"
+for /f "tokens=* delims=" %%# in ('"wmic path %~1 where (ID='%chkID%') get %~3 /value" ^| findstr ^=') do set "%%#"
 
 set /a gprDays=%GracePeriodRemaining%/1440
 echo %Description%| findstr /i VOLUME_KMSCLIENT 1>nul && (set KmsClient=1)
@@ -143,7 +143,7 @@ if %DiscoveredKeyManagementServiceMachinePort%==0 set DiscoveredKeyManagementSer
 set "KmsDns=KMS machine name from DNS: %DiscoveredKeyManagementServiceMachineName%:%DiscoveredKeyManagementServiceMachinePort%"
 if "%DiscoveredKeyManagementServiceMachineName%"=="" set "KmsDns=DNS auto-discovery: KMS name not available"
 
-for /f "tokens=* delims=" %%a in ('"wmic path %~2 get ClientMachineID, KeyManagementServiceHostCaching /value" ^| findstr ^=') do set "%%a"
+for /f "tokens=* delims=" %%# in ('"wmic path %~2 get ClientMachineID, KeyManagementServiceHostCaching /value" ^| findstr ^=') do set "%%#"
 if /i %KeyManagementServiceHostCaching%==True (set KeyManagementServiceHostCaching=Enabled) else (set KeyManagementServiceHostCaching=Disabled)
 
 if %winbuild% lss 9200 exit /b
@@ -175,8 +175,8 @@ echo Partial Product Key: %PartialProductKey%
 echo License Status: %License%
 if defined LicenseMsg echo %LicenseMsg%
 if not %LicenseStatus%==0 if not %EvaluationEndDate:~0,8%==16010101 echo Evaluation End Date: %EvaluationEndDate:~0,4%-%EvaluationEndDate:~4,2%-%EvaluationEndDate:~6,2% %EvaluationEndDate:~8,2%:%EvaluationEndDate:~10,2% UTC
-if defined VLActivationTypeEnabled echo Configured Activation Type: %VLActivationType%
 if not defined KmsClient exit /b
+if defined VLActivationTypeEnabled echo Configured Activation Type: %VLActivationType%
 echo.
 if not %LicenseStatus%==1 (
 echo Please activate the product in order to update KMS client information values.

@@ -1,46 +1,51 @@
 @echo off
-cls
 set _Debug=0
 
 set Online=0
 set KMS_IP=172.16.0.2
 set KMS_Port=1688
+set KMS_ActivationInterval=120
+set KMS_RenewalInterval=10080
+set KMS_HWID=0x3A1C049600B60076
 
-:: detect and skip Windows 10 KMS 2038
-:: change to 0 to turn OFF and revert Windows 10 to normal KMS
 set KMS38=1
-
-set FixedEPID=1
 
 set "SysPath=%Windir%\System32"
 if exist "%Windir%\Sysnative\reg.exe" (set "SysPath=%Windir%\Sysnative")
 set "Path=%SysPath%;%Windir%;%SysPath%\Wbem;%SysPath%\WindowsPowerShell\v1.0\"
 
 fsutil dirty query %systemdrive% >nul 2>&1 || goto :E_Admin
-if %Online%==0 if not exist "%SystemRoot%\system32\SppExtComObj*.dll" goto :E_Patcher
-if %Online%==0 set KMS_IP=172.16.0.2
+
+if %Online%==0 (
+if not exist "%SystemRoot%\system32\SppExtComObj*.dll" goto :E_Patcher
+if exist "%SystemRoot%\system32\SppExtComObj*.dll" dir /b /al "%SystemRoot%\system32\SppExtComObjHook.dll" >nul 2>&1 && goto :E_Patcher
+set KMS_IP=172.16.0.2
+)
 
 set "_tempdir=%SystemRoot%\Temp"
-set "_workdir=%~dp0"
 set "_logpath=%~dpn0"
-dir /b /adr "%_workdir%" 1>nul 2>nul && set "_logpath=%_tempdir%\%~n0"
-if "%_workdir:~0,2%"=="\\" set "_logpath=%_tempdir%\%~n0"
+set "_workdir=%~dp0"
+if "%_workdir:~-1%"=="\" set "_workdir=%_workdir:~0,-1%"
 setlocal EnableExtensions EnableDelayedExpansion
+set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
 
 if %_Debug% EQU 0 (
   set "_Nul_1=1>nul"
   set "_Nul_2=2>nul"
   set "_Nul_2e=2^>nul"
   set "_Nul_1_2=1>nul 2>nul"
+  set "_Pause=pause >nul"
   call :Begin
 ) else (
   set "_Nul_1="
   set "_Nul_2="
   set "_Nul_2e="
   set "_Nul_1_2="
+  set "_Pause="
   echo.
   echo Running in Debug Mode...
   echo The window will be closed when finished
+  copy /y nul "!_workdir!\#.rw" 1>nul 2>nul && (if exist "!_workdir!\#.rw" del /f /q "!_workdir!\#.rw") || (set "_logpath=!_tempdir!\%~n0")
   @echo on
   @prompt $G
   @call :Begin >"!_logpath!.tmp" 2>&1 &cmd /u /c type "!_logpath!.tmp">"!_logpath!_Debug.log"&del "!_logpath!.tmp"
@@ -54,6 +59,7 @@ for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 if %winbuild% GEQ 9600 (
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /f /v NoGenTicket /t REG_DWORD /d 1 %_Nul_1_2%
 )
+SET Win10Gov=0
 if %winbuild% LSS 14393 goto :Main
 
 SET "RegKey=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages"
@@ -74,23 +80,29 @@ IF NOT DEFINED EditionWMI (
 IF %winbuild% GEQ 17063 FOR /F "SKIP=2 TOKENS=3 DELIMS= " %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%A"
 GOTO :Main
 )
-FOR %%A IN (Cloud,CloudN) DO (IF /I "%EditionWMI%"=="%%A" GOTO :Main)
+FOR %%A IN (Cloud,CloudN,IoTEnterprise,IoTEnterpriseS) DO (IF /I "%EditionWMI%"=="%%A" GOTO :Main)
 SET EditionID=%EditionWMI%
+FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
 
 :Main
 reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul_1_2% && set "_C2R=HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
 if not defined _C2R reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul_1_2% && set "_C2R=HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration"
 for %%A in (14,15,16,19) do call :officeLoc %%A
+if %Online%==0 (
+if %winbuild% GEQ 9200 call :UpdateIFEOEntry SppExtComObj.exe
+if %winbuild% LSS 9200 call :UpdateIFEOEntry sppsvc.exe
+call :UpdateIFEOEntry osppsvc.exe
+)
 call :SPP
 call :OSPP
-if %Online%==0 if %FixedEPID%==1 call :ePID
 if exist "!_tempdir!\*chk.txt" del /f /q "!_tempdir!\*chk.txt"
+if exist "!_tempdir!\slmgr.vbs" del /f /q "!_tempdir!\slmgr.vbs"
 net stop sppsvc /y %_Nul_1_2% || sc stop sppsvc %_Nul_1_2%
 sc start sppsvc trigger=timer;sessionid=0 %_Nul_1_2%
 echo.
 echo.
 echo Press any key to exit...
-if %_Debug% EQU 0 pause >nul
+%_Pause%
 exit /b
 
 :SPP
@@ -98,7 +110,8 @@ set spp=SoftwareLicensingProduct
 set sps=SoftwareLicensingService
 set W1nd0ws=1
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul_2% | findstr /i Office %_Nul_1% && (set 0ff1ce15=1)
-if %loc_off15% equ 0 if %loc_off16% equ 0 if %loc_off19% equ 0 (set "0ff1ce15="&set "aword=No Installed") else (set "aword=No Supported KMS Client")
+set "aword=No Supported KMS Client"
+if %loc_off15% equ 0 if %loc_off16% equ 0 if %loc_off19% equ 0 (set "0ff1ce15="&set "aword=No Installed")
 if not defined 0ff1ce15 if %winbuild% GEQ 9200 (echo.&echo %aword% Office 2013/2016/2019 Product Detected...)
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul_2% | findstr /i Windows %_Nul_1% && (set WinVL=1) || (echo.&echo No Supported KMS Client Windows Detected...)
 if not defined 0ff1ce15 if not defined WinVL exit /b
@@ -169,11 +182,25 @@ call :winchk
 exit /b
 
 :winchk
-echo.
+if not defined tok (if %winbuild% GEQ 9200 (set "tok=4") else (set "tok=7"))
+if not defined wApp set wApp=55c92734-d682-4d71-983e-d6ec3f16059f
 wmic path %spp% where (LicenseStatus='1' and Description like '%%KMSCLIENT%%') get Name %_Nul_2% | findstr /i "Windows" %_Nul_1_2% && (exit /b)
+echo.
 wmic path %spp% where (LicenseStatus='1' and GracePeriodRemaining='0' and PartialProductKey is not NULL) get Name %_Nul_2% | findstr /i "Windows" %_Nul_1_2% && (
 set WinPerm=1
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Checking: %%x
+)
+if not defined WinPerm (
+wmic path %spp% where "ApplicationID='%wApp%' and LicenseStatus='1'" get Name %_Nul_2% | findstr /i "Windows" %_Nul_1_2% && (
+for /f "tokens=%tok% delims=, " %%G in ('"wmic path %spp% where (ApplicationID='%wApp%' and LicenseStatus='1') get Description /VALUE"') do set "channel=%%G"
+  for %%A in (VOLUME_MAK, RETAIL, OEM_DM, OEM_SLP, OEM_COA, OEM_COA_SLP, OEM_COA_NSLP, OEM_NONSLP, OEM) do if /i "%%A"=="!channel!" set WinPerm=1
+  )
+)
+if not defined WinPerm (
+copy /y %Windir%\System32\slmgr.vbs "!_tempdir!\slmgr.vbs" %_Nul_1_2%
+cscript //nologo "!_tempdir!\slmgr.vbs" /xpr %_Nul_2% | findstr /i "permanently" %_Nul_1_2% && set WinPerm=1
+)
+if defined WinPerm (
+for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where (ApplicationID='%wApp%' and LicenseStatus='1') get Name /VALUE"') do echo Checking: %%x
 echo Product is Permanently Activated.
 exit /b
 )
@@ -433,7 +460,7 @@ if /i %sps% equ SoftwareLicensingService wmic path %sps% where version='%ver%' c
 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%1' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a gpr2=%%x/1440)
 if %gpr% equ 43200 if %office% equ 0 if %winbuild% geq 9200 (echo Windows Core/ProfessionalWMC Activation Successful&echo Remaining Period: 30 days ^(%gpr% minutes^)&exit /b)
 if %gpr% equ 64800 (echo Windows Core/ProfessionalWMC Activation Successful&echo Remaining Period: 45 days ^(%gpr% minutes^)&exit /b)
-if %gpr% gtr 259200 (echo Windows 10 EnterpriseG/EnterpriseGN Activation Successful&echo Remaining Period: %gpr2% days ^(%gpr% minutes^)&exit /b)
+if %gpr% gtr 259200 if %Win10Gov% equ 1 (echo Windows 10 %EditionID% Activation Successful&echo Remaining Period: %gpr2% days ^(%gpr% minutes^)&exit /b)
 if %gpr% equ 259200 (
 echo Product Activation Successful
 ) else (
@@ -443,48 +470,11 @@ echo Product Activation Failed: 0x!=ExitCode!
 echo Remaining Period: %gpr2% days ^(%gpr% minutes^)
 exit /b
 
-:ePID
-set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
-for %%A in (WINEPID,O14EPID,O15EPID,O16EPID,O19EPID,WINRAND,O14RAND,O15RAND,O16RAND,O19RAND) do set %%A=0
-if %winbuild% LSS 9200 (
-set "winkey=sppsvc.exe"
-set "o15key=osppsvc.exe"
-set "o14key=osppsvc.exe"
-set "o15svc=OfficeSoftwareProtectionProduct"
-set "o14svc=OfficeSoftwareProtectionProduct"
-) else (
-set "winkey=SppExtComObj.exe"
-set "o15key=SppExtComObj.exe"
-set "o14key=osppsvc.exe"
-set "o15svc=SoftwareLicensingProduct"
-set "o14svc=OfficeSoftwareProtectionProduct"
-)
-reg query "%IFEO%\%winkey%" /v Windows    %_Nul_2% | findstr /i Random %_Nul_1% && set WINRAND=1
-reg query "%IFEO%\%o14key%" /v Office2010 %_Nul_2% | findstr /i Random %_Nul_1% && set O14RAND=1
-reg query "%IFEO%\%o15key%" /v Office2013 %_Nul_2% | findstr /i Random %_Nul_1% && set O15RAND=1
-reg query "%IFEO%\%o15key%" /v Office2016 %_Nul_2% | findstr /i Random %_Nul_1% && set O16RAND=1
-reg query "%IFEO%\%o15key%" /v Office2019 %_Nul_2% | findstr /i Random %_Nul_1% && set O19RAND=1
-
-if defined WinVL if not defined WinPerm if %WINRAND% equ 1 (
-for /f "tokens=2 delims==" %%A in ('"wmic path SoftwareLicensingProduct where (Description like '%%KMSCLIENT%%' AND Name like 'Windows%%' AND PartialProductKey is not NULL) get KeyManagementServiceProductKeyID /VALUE" %_Nul_2e%') do set "WINEPID=%%A"
-echo !WINEPID!| findstr /i "\-" %_Nul_1% && (reg add "%IFEO%\%winkey%" /f /v Windows /t REG_SZ /d "!WINEPID!" %_Nul_1_2%)
-)
-if %loc_off19% equ 1 if %O19RAND% equ 1 (
-for /f "tokens=2 delims==" %%A in ('"wmic path %o15svc% where (Name like '%%KMS_Client_AE%%' AND PartialProductKey is not NULL) get KeyManagementServiceProductKeyID /VALUE" %_Nul_2e%') do set "O19EPID=%%A"
-echo !O19EPID!| findstr /i "\-" %_Nul_1% && (reg add "%IFEO%\%o15key%" /f /v Office2019 /t REG_SZ /d "!O19EPID!" %_Nul_1_2%)
-)
-if %loc_off16% equ 1 if %O16RAND% equ 1 (
-for /f "tokens=2 delims==" %%A in ('"wmic path %o15svc% where (Description like '%%KMSCLIENT%%' AND Name like 'Office 16%%' AND PartialProductKey is not NULL) get KeyManagementServiceProductKeyID /VALUE" %_Nul_2e%') do set "O16EPID=%%A"
-echo !O16EPID!| findstr /i "\-" %_Nul_1% && (reg add "%IFEO%\%o15key%" /f /v Office2016 /t REG_SZ /d "!O16EPID!" %_Nul_1_2%)
-)
-if %loc_off15% equ 1 if %O15RAND% equ 1 (
-for /f "tokens=2 delims==" %%A in ('"wmic path %o15svc% where (Description like '%%KMSCLIENT%%' AND Name like 'Office 15%%' AND PartialProductKey is not NULL) get KeyManagementServiceProductKeyID /VALUE" %_Nul_2e%') do set "O15EPID=%%A"
-echo !O15EPID!| findstr /i "\-" %_Nul_1% && (reg add "%IFEO%\%o15key%" /f /v Office2013 /t REG_SZ /d "!O15EPID!" %_Nul_1_2%)
-)
-if %loc_off14% equ 1 if %O14RAND% equ 1 (
-for /f "tokens=2 delims==" %%A in ('"wmic path %o14svc% where (Description like '%%KMSCLIENT%%' AND Name like 'Office 14%%' AND PartialProductKey is not NULL) get KeyManagementServiceProductKeyID /VALUE" %_Nul_2e%') do set "O14EPID=%%A"
-echo !O14EPID!| findstr /i "\-" %_Nul_1% && (reg add "%IFEO%\%o14key%" /f /v Office2010 /t REG_SZ /d "!O14EPID!" %_Nul_1_2%)
-)
+:UpdateIFEOEntry
+reg query "%IFEO%\%1" /v KMS_Emulation %_Nul_1_2% || exit /b
+reg add "%IFEO%\%1" /f /v KMS_ActivationInterval /t REG_DWORD /d %KMS_ActivationInterval% %_Nul_1_2%
+reg add "%IFEO%\%1" /f /v KMS_RenewalInterval /t REG_DWORD /d %KMS_RenewalInterval% %_Nul_1_2%
+if /i %1 EQU SppExtComObj.exe if %winbuild% GEQ 9600 reg add "%IFEO%\%1" /f /v KMS_HWID /t REG_QWORD /d "%KMS_HWID%" %_Nul_1_2%
 exit /b
 
 :E_Admin
@@ -512,5 +502,5 @@ echo Unsupported OS version Detected.
 echo Project is supported only for Windows 7/8/8.1/10 and their Server equivalent.
 echo.
 echo Press any key to exit...
-if %_Debug% EQU 0 pause >nul
+%_Pause%
 goto :eof

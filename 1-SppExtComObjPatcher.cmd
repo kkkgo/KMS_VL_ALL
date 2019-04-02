@@ -1,5 +1,4 @@
 @echo off
-cls
 set ClearKMSCache=1
 
 set KMS_Emulation=1
@@ -8,11 +7,6 @@ set KMS_Port=1688
 set KMS_ActivationInterval=120
 set KMS_RenewalInterval=10080
 set KMS_HWID=0x3A1C049600B60076
-set Windows=Random
-set Office2010=Random
-set Office2013=Random
-set Office2016=Random
-set Office2019=Random
 
 set "SysPath=%Windir%\System32"
 if exist "%Windir%\Sysnative\reg.exe" (set "SysPath=%Windir%\Sysnative")
@@ -22,11 +16,12 @@ fsutil dirty query %systemdrive% >nul 2>&1 || goto :E_Admin
 
 title SppExtComObjPatcher
 set "_workdir=%~dp0"
+if "%_workdir:~-1%"=="\" set "_workdir=%_workdir:~0,-1%"
 set xOS=x64
-if /i %PROCESSOR_ARCHITECTURE%==x86 (if "%PROCESSOR_ARCHITEW6432%"=="" set xOS=Win32)
+if /i "%PROCESSOR_ARCHITECTURE%"=="x86" (if "%PROCESSOR_ARCHITEW6432%"=="" set xOS=Win32)
 setlocal EnableExtensions EnableDelayedExpansion
 set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
-set "OSPP=HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"
+set "OSPP=SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"
 set "SPPk=SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform"
 wmic path SoftwareLicensingProduct where (Description like '%%KMSCLIENT%%') get Name 2>nul | findstr /i Windows 1>nul && (set SppHook=1) || (set SppHook=0)
 wmic path OfficeSoftwareProtectionService get Version >nul 2>&1 && (set OsppHook=1) || (set OsppHook=0)
@@ -47,19 +42,23 @@ echo Microsoft (R) Windows Software Licensing.
 echo Copyright (C) Microsoft Corporation. All rights reserved.
 echo =========================================================
 echo.
-IF EXIST "%SystemRoot%\system32\SppExtComObj*.dll" goto :uninst
+if exist "%SystemRoot%\system32\SppExtComObj*.dll" (
+dir /b /al "%SystemRoot%\system32\SppExtComObjHook.dll" >nul 2>&1 || goto :uninst
+)
 
 :inst
 choice /C YN /N /M "SppExtComObjPatcher will be installed on your computer. Continue? [y/n]: "
-IF ERRORLEVEL 2 exit
+if errorlevel 2 exit
 call :StopService sppsvc
 if %OsppHook% NEQ 0 call :StopService osppsvc
 if %winbuild% GEQ 9600 (
-WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath="%SystemRoot%\system32\SppExtComObjHook.dll" >nul 2>&1
+	WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath="%SystemRoot%\system32\SppExtComObjHook.dll" >nul 2>&1
 )
 echo.
 echo Copying Files...
-if exist "%SystemRoot%\system32\SppExtComObjPatcher.*" del /f /q "%SystemRoot%\system32\SppExtComObjPatcher.*" %_Nul_1_2%
+for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dll,SppExtComObjPatcher.exe) do (
+	if exist "%SystemRoot%\system32\%%#" del /f /q "%SystemRoot%\system32\%%#" >nul 2>&1
+)
 copy /y "!_workdir!\!xOS!\SppExtComObjHook.dll" "%SystemRoot%\system32" >nul 2>&1 && (echo Copied SppExtComObjHook.dll) || (echo SppExtComObjHook.dll Failed&pause&exit /b)
 echo.
 echo Creating Registry Entries...
@@ -74,28 +73,19 @@ if %OSType% EQU Win7 if %SppHook% NEQ 0 (
     echo osppsvc.exe of Office %OffVer%
     call :CreateIFEOEntry osppsvc.exe
 if %winbuild% GEQ 9200 (
-schtasks /query /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1 || schtasks /create /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" /xml "!_workdir!\Win32\SvcTrigger.xml" /f >nul 2>&1
+	schtasks /query /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1 || schtasks /create /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" /xml "!_workdir!\Win32\SvcTrigger.xml" /f >nul 2>&1
 )
 goto :End
 
 :uninst
 choice /C YN /N /M "SppExtComObjPatcher will be removed from your computer. Continue? [y/n]: "
-IF ERRORLEVEL 2 exit
+if errorlevel 2 exit
 call :StopService sppsvc
 if %OsppHook% NEQ 0 call :StopService osppsvc
 echo.
 echo Removing Installed Files...
-if exist "%SystemRoot%\system32\SppExtComObjHook.dll" (
-	echo SppExtComObjHook.dll
-	del /f /q "%SystemRoot%\system32\SppExtComObjHook.dll"
-)
-if exist "%SystemRoot%\system32\SppExtComObjPatcher.dll" (
-	echo SppExtComObjPatcher.dll
-	del /f /q "%SystemRoot%\system32\SppExtComObjPatcher.dll"
-)
-if exist "%SystemRoot%\system32\SppExtComObjPatcher.exe" (
-	echo SppExtComObjPatcher.exe
-	del /f /q "%SystemRoot%\system32\SppExtComObjPatcher.exe"
+for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dll,SppExtComObjPatcher.exe) do (
+	if exist "%SystemRoot%\system32\%%#" (echo %%#&del /f /q "%SystemRoot%\system32\%%#")
 )
 echo.
 echo Removing Registry Entries...
@@ -112,81 +102,86 @@ if %OSType% EQU Win7 if %SppHook% NEQ 0 (
 if %ClearKMSCache% EQU 1 (
 echo.
 echo Clearing KMS Cache...
-call :cKMS SoftwareLicensingProduct SoftwareLicensingService
-if %OsppHook% NEQ 0 call :cKMS OfficeSoftwareProtectionProduct OfficeSoftwareProtectionService
+call :cKMS SoftwareLicensingProduct SoftwareLicensingService >nul 2>&1
+if %OsppHook% NEQ 0 call :cKMS OfficeSoftwareProtectionProduct OfficeSoftwareProtectionService >nul 2>&1
+call :cREG >nul 2>&1
 )
 if %winbuild% GEQ 9200 (
 schtasks /query /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1 && schtasks /delete /f /tn "\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger" >nul 2>&1
 )
 if %winbuild% GEQ 9600 (
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /v "NoGenTicket" /f >nul 2>&1
-WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\system32\SppExtComObjHook.dll" >nul 2>&1
-WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\system32\SppExtComObjPatcher.dll" >nul 2>&1
-WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\system32\SppExtComObjPatcher.exe" >nul 2>&1
+for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dll,SppExtComObjPatcher.exe) do (
+	WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\system32\%%#" >nul 2>&1
+	)
 )
 goto :End
 
 :StopService
 sc query %1 | find /i "STOPPED" >nul || net stop %1 /y >nul 2>&1
 sc query %1 | find /i "STOPPED" >nul || sc stop %1 >nul 2>&1
-goto :EOF
+goto :eof
 
 :CreateIFEOEntry
-reg add "%IFEO%\%1" /f /v Debugger /t REG_SZ /d "rundll32.exe SppExtComObjHook.dll,PatcherMain" >nul 2>&1
+reg delete "%IFEO%\%1" /f /v Debugger >nul 2>&1
+reg add "%IFEO%\%1" /f /v VerifierDlls /t REG_SZ /d "SppExtComObjHook.dll" >nul 2>&1
+reg add "%IFEO%\%1" /f /v GlobalFlag /t REG_DWORD /d 256 >nul 2>&1
 reg add "%IFEO%\%1" /f /v KMS_Emulation /t REG_DWORD /d %KMS_Emulation% >nul 2>&1
 reg add "%IFEO%\%1" /f /v KMS_ActivationInterval /t REG_DWORD /d %KMS_ActivationInterval% >nul 2>&1
 reg add "%IFEO%\%1" /f /v KMS_RenewalInterval /t REG_DWORD /d %KMS_RenewalInterval% >nul 2>&1
-if /i %1 NEQ osppsvc.exe (
-reg add "%IFEO%\%1" /f /v Windows /t REG_SZ /d "%Windows%" >nul 2>&1
-if %winbuild% GEQ 9200 for %%A in (2013,2016,2019) do reg add "%IFEO%\%1" /f /v Office%%A /t REG_SZ /d "!Office%%A!" >nul 2>&1
-)
-if /i %1 EQU osppsvc.exe (
-reg add "%IFEO%\%1" /f /v Office2010 /t REG_SZ /d "%Office2010%" >nul 2>&1
-if %winbuild% LSS 9200 for %%A in (2013,2016,2019) do reg add "%IFEO%\%1" /f /v Office%%A /t REG_SZ /d "!Office%%A!" >nul 2>&1
-reg add "%OSPP%" /f /v KeyManagementServiceName /t REG_SZ /d %KMS_IP% >nul 2>&1
-reg add "%OSPP%" /f /v KeyManagementServicePort /t REG_SZ /d %KMS_Port% >nul 2>&1
-)
 if /i %1 EQU SppExtComObj.exe if %winbuild% GEQ 9600 (
 reg add "%IFEO%\%1" /f /v KMS_HWID /t REG_QWORD /d "%KMS_HWID%" >nul 2>&1
 )
-goto :EOF
+if /i %1 EQU osppsvc.exe (
+reg add "HKLM\%OSPP%" /f /v KeyManagementServiceName /t REG_SZ /d %KMS_IP% >nul 2>&1
+reg add "HKLM\%OSPP%" /f /v KeyManagementServicePort /t REG_SZ /d %KMS_Port% >nul 2>&1
+)
+goto :eof
 
 :RemoveIFEOEntry
 if /i %1 NEQ osppsvc.exe (
 reg delete "%IFEO%\%1" /f >nul 2>&1
-goto :EOF
+goto :eof
 )
-for %%A in (Debugger,KMS_Emulation,KMS_ActivationInterval,KMS_RenewalInterval,Office2010,Office2013,Office2016,Office2019) do reg delete "%IFEO%\%1" /f /v %%A >nul 2>&1
-if %ClearKMSCache% EQU 1 (
-reg delete "%OSPP%" /f /v KeyManagementServiceName >nul 2>&1
-reg delete "%OSPP%" /f /v KeyManagementServicePort >nul 2>&1
+if %OsppHook% EQU 0 if /i %1 EQU osppsvc.exe (
+reg delete "%IFEO%\%1" /f >nul 2>&1
+goto :eof
 )
-goto :EOF
+for %%A in (VerifierDlls,GlobalFlag,Debugger,KMS_Emulation,KMS_ActivationInterval,KMS_RenewalInterval,Office2010,Office2013,Office2016,Office2019) do reg delete "%IFEO%\%1" /f /v %%A >nul 2>&1
+goto :eof
 
 :cKMS
 set spp=%1
 set sps=%2
-for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /VALUE" 2^>nul') do (set app=%%G&call :Clear)
+for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /VALUE" 2^>nul') do (set app=%%G&call :cAPP)
 for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE"') do set ver=%%A
-wmic path %sps% where version='%ver%' call ClearKeyManagementServiceMachine >nul 2>&1
-wmic path %sps% where version='%ver%' call ClearKeyManagementServicePort >nul 2>&1
-wmic path %sps% where version='%ver%' call DisableKeyManagementServiceDnsPublishing 1 >nul 2>&1
-wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCaching 1 >nul 2>&1
-if /i %1 EQU SoftwareLicensingProduct (
-reg delete "HKLM\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f >nul 2>&1
-reg delete "HKLM\%SPPk%\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
-reg delete "HKEY_USERS\S-1-5-20\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f >nul 2>&1
-reg delete "HKEY_USERS\S-1-5-20\%SPPk%\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
-) else (
-reg delete "%OSPP%\59a52881-a989-479d-af46-f275c6370663" /f >nul 2>&1
-reg delete "%OSPP%\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
-)
-goto :EOF
+wmic path %sps% where version='%ver%' call ClearKeyManagementServiceMachine
+wmic path %sps% where version='%ver%' call ClearKeyManagementServicePort
+wmic path %sps% where version='%ver%' call DisableKeyManagementServiceDnsPublishing 1
+wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCaching 1
+goto :eof
 
-:Clear
-wmic path %spp% where ID='%app%' call ClearKeyManagementServiceMachine >nul 2>&1
-wmic path %spp% where ID='%app%' call ClearKeyManagementServicePort >nul 2>&1
-goto :EOF
+:cAPP
+wmic path %spp% where ID='%app%' call ClearKeyManagementServiceMachine
+wmic path %spp% where ID='%app%' call ClearKeyManagementServicePort
+goto :eof
+
+:cREG
+reg delete "HKLM\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f
+reg delete "HKLM\%SPPk%\0ff1ce15-a989-479d-af46-f275c6370663" /f
+reg delete "HKLM\%SPPk%" /f /v KeyManagementServiceName
+reg delete "HKLM\%SPPk%" /f /v KeyManagementServicePort
+reg delete "HKU\S-1-5-20\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f
+reg delete "HKU\S-1-5-20\%SPPk%\0ff1ce15-a989-479d-af46-f275c6370663" /f
+reg delete "HKLM\%OSPP%\59a52881-a989-479d-af46-f275c6370663" /f
+reg delete "HKLM\%OSPP%\0ff1ce15-a989-479d-af46-f275c6370663" /f
+reg delete "HKLM\%OSPP%" /f /v KeyManagementServiceName
+reg delete "HKLM\%OSPP%" /f /v KeyManagementServicePort
+if %OsppHook% EQU 0 (
+reg delete "HKLM\%OSPP%" /f
+reg delete "HKU\S-1-5-20\%OSPP%" /f
+)
+goto :eof
 
 :E_Admin
 echo ==== ERROR ====
@@ -195,7 +190,7 @@ echo To do so, right click on this script and select 'Run as administrator'
 echo.
 echo Press any key to exit...
 pause >nul
-goto :EOF
+goto :eof
 
 :UnsupportedVersion
 echo ==== ERROR ====
@@ -204,11 +199,11 @@ echo Project is supported only for Windows 7/8/8.1/10 and their Server equivalen
 echo.
 echo Press any key to exit...
 pause >nul
-goto :EOF
+goto :eof
 
 :End
 echo.
 echo Done.
 echo Press any key to exit...
 pause >nul
-goto :EOF
+goto :eof
