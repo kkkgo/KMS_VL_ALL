@@ -1,4 +1,6 @@
 @echo off
+color 07
+title Status - WMIC
 set spp=SoftwareLicensingProduct
 set sps=SoftwareLicensingService
 set ospp=OfficeSoftwareProtectionProduct

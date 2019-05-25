@@ -1,4 +1,4 @@
-# KMS_VL_ALL - Smart Activation Script (Version 31)
+# KMS_VL_ALL - Smart Activation Script (Version 32)
 
 ## Supported Volume Products:  
 [see here](https://github.com/lixuy/vlmcsd#valid-apps)
@@ -127,16 +127,17 @@ Note: this will auto remove SppExtComObjPatcher if it was installed
 
 ## Credits:
 
- - cynecx         - SppExtComObj Injector  
- - qad            - SppExtComObjPatcher  
+ - namazso - SppExtComObjHook, IFEO AVrf custom provider.
+ - qad - SppExtComObjPatcher, IFEO Debugger.
  - [Mouri_Naruto](https://github.com/MouriNaruto)   - SppExtComObjPatcher-DLL  
- - CODYQX4        - KMSEmulator Source  
- - MasterDisaster - initial script / WMI methods  
- - qewpal         - KMS-VL-ALL author  
- - abbodi1406     - KMS_VL_ALL-SppExtComObjPatcher-kms author 
- 
- - Thanks for special assistance:  
-NormieLyfe, Nucleus, Enthousiast, rpo  
+ - os51 - SppExtComObjPatcher ported to MinGW GCC, Retail/MAK checks examples.
+ - MasterDisaster - Original script, WMI methods.
+ - qewpal - KMS-VL-ALL script.
+ - Windows_Addict - suggestions, ideas and documentation help.
+ - NormieLyfe - GVLK categorize, Office checks help.
+ - rpo, presto1234 - scripting suggestions.
+ - Nucleus, Enthousiast, s1ave77, l33tisw00t, LostED, Sajjo and MDL Community for interest, feedback and assistance.
+ - abbodi1406 - KMS_VL_ALL-SppExtComObjPatcher-kms
 
 >This is a copy from the mydigitallife forum.  
 https://forums.mydigitallife.net/threads/kms-activate-windows-8-1-en-pro-and-office-2013.49686/page-76#post-838808
