@@ -72,7 +72,7 @@ see ReadMe.html
 
 ## 安装自动续期的KMS激活（系统会增加计划任务和必要的hook）
   - 1、
- 先右键管理员运行脚本**AutoRenewal-Setup.cmd**，这是一个带有KMS服务器的HOOK，会劫持系统的KMS组件，请让杀毒软件放行，输入y安装；如果你需要卸载，只需要再次运行他，输入y卸载。如果您使用防病毒软件，最好从扫描保护中排除此文件：
+ 先右键管理员运行脚本**AutoRenewal-Setup.cmd**，这是一个带有KMS服务器的hook，会劫持系统的KMS组件，请让杀毒软件放行，输入y安装；如果你需要卸载，只需要再次运行他，输入y卸载。如果您使用防病毒软件，最好从扫描保护中排除此文件：
 **C:\Windows\System32\SppExtComObjHook.dll**
   - 2、运行**Activate.cmd**即可
 >不管你是用哪种方式激活，如果你安装了新的产品，你仍至少需要运行一次**Activate.cmd**来处理产品激活。
