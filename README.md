@@ -10,118 +10,73 @@ office2013
 https://technet.microsoft.com/en-us/library/dn385360.aspx   
 office2010  
 https://technet.microsoft.com/en-us/library/ee624355(v=office.14).aspx   
+*Office Retail must be [converted](https://github.com/kkkgo/office-C2R-to-VOL) to Volume first, before it can be activated with KMS
+## How To Use:
+>Remove any other KMS solutions.  
+Temporary suspend Antivirus realtime protection, or exclude the downloaded file and extracted folder from scanning to avoid quarantine.  
+Extract the downloaded file contents to a simple path without special characters or long spaces.  
+Administrator rights are require to run the activation script(s).  
 
-## Auto Renewal:
+**KMS_VL_ALL offer 3 flavors of activation modes:**
+### Manual mode (without leaving any KMS emulator traces in the system.)
+make sure that auto renewal solution is not installed, or remove it  
+then, just run **Activate.cmd**  
 
-To install this solution for auto renewal activation, run these scripts respectively:
+>You will have to run Activate.cmd again before the **KMS activation period expire**(default 180 days).  
+You can run Activate.cmd anytime during that period to renew the period to the max interval.  
+If Activate.cmd is accidentally terminated before it completes, run the script again to clean any leftovers.  
 
-1-SppExtComObjPatcher.cmd
-install/uninstall the Patcher Hook.
+### Auto Renewal mode (the system itself handle and renew activation per schedule.)
+first, run the script AutoRenewal-Setup.cmd, press **Y** to approve the installation  
+then, just run **Activate.cmd**  
 
-2-Activate-Local.cmd
-activate installed supported products (you must run it at least once).
-you may need to run it again if you installed Office product afterwards.
+>If you use Antivirus software, it is best to exclude this file from scanning protection:
+**C:\Windows\System32\SppExtComObjHook.dll**
 
-## Manual:
-
-To only activate without installing and without renewal, run this script only:
-
-KMS_VL_ALL.cmd
-
-you will need to run it again before the activation period expire (6 months by default).
-
-## Windows 10 KMS 2038:
-
-Both KMS_VL_ALL.cmd and Activate-Local.cmd are set by default
-to check and skip Windows activation if KMS 2038 detected
-
-However, if you would like to revert or use normal KMS activation:
-- edit KMS_VL_ALL.cmd or 2-Activate-Local.cmd with Notepad
-- change KMS38=1 to zero 0
-- save the script, and run it as administrator
-
-## Online KMS:
+### Online KMS mode:
 
 You may use Activate-Local.cmd for online activation,
 if you have valid/trusted external KMS host server.
-
-- edit Activate-Local.cmd with Notepad
-- change KMS_IP=172.16.0.2 to the IP/address of online KMS server
-- change Online=0 from zero 0 to 1
-- save the script, and run it as administrator
+ - edit Activate.cmd with Notepad (or text editor)
+ - change External=0 to 1
+ - change KMS_IP=172.16.0.2 to the IP/address of the server
+ - save the script, and run it as administrator
 
 ## Setup Preactivate:
 
-- To preactivate the system during installation, copy $oem$ to "sources" folder in the installation media (iso/usb)
+ - To preactivate the system during installation, copy $oem$ folder to sources folder in the installation media (iso/usb).
 
-- If you already use another setupcomplete.cmd, rename this one to KMS_VL_ALL.cmd or similar name
+ - If you already use another setupcomplete.cmd, rename this one to KMS_VL_ALL.cmd or similar name
 then add a command to run it in your setupcomplete.cmd, example:
 call KMS_VL_ALL.cmd
 
-- Use SppExtComObjPatcher.cmd if you want to uninstall the project afterwards.
+ - Use AutoRenewal-Setup.cmd if you want to uninstall the project afterwards.
 
-- Note: setupcomplete.cmd is disabled if the default installed key for the edition is OEM Channel
+>Notes:  
+The included setupcomplete.cmd support the Additional Options described previously, except Unattended Switches.
+Use AutoRenewal-Setup.cmd if you want to uninstall the project afterwards.
+In Windows 8 and later, running setupcomplete.cmd is disabled if the default installed key for the edition is OEM Channel.
 
-## Remarks:
-
-- Some security programs will report infected files, that is false-positive due KMS emulating.
-- Remove any other KMS solutions. Temporary turn off AV security protection. Run as administrator.
-- If you installed the solution for auto renewal, exclude this file in AV security protection:
-C:\Windows\system32\SppExtComObjHook.dll
-
-## KMS Options for advanced users:
-
-You can modify KMS-related options by editing SppExtComObjPatcher.cmd or KMS_VL_ALL.cmd or setupcomplete.cmd
-
-- KMS_Emulation
-Enable embedded KMS Emulator functions
-never change this option
-
-- KMS_RenewalInterval
-Set interval (minutes) for activated clients to auto renew KMS activation
-this does not affect the overall KMS period (6 months)
-allowed values: from 15 to 43200
-
-- KMS_ActivationInterval
-Set interval (minutes) for products to attempt KMS activation, whether unactivated or failed activation renewal
-this does not affect the overall KMS period (6 months)
-allowed values: from 15 to 43200
-
-- KMS_HWID
-Set custom KMS host Hardware ID hash, 0x prefix is mandatory
-only affect Windows 8.1/ 10
-
-- Windows, Office2010, Office2013, Office2016, Office2019
-Set custom fixed KMS host ePID for each product, instead generating it randomly
-
-## Debug:
-
-If the activation failed, you may run the debug mode to help determining the reason
-
-move SppExtComObjPatcher-kms folder to a short path
-with Notepad open/edit KMS_VL_ALL.cmd
-change the zero 0 to 1 in set _Debug=0
-save the script, and run it as administrator
-wait until command prompt window is closed and Debug.log is created
-then upload or copy/post the log file
-
-Note: this will auto remove SppExtComObjPatcher if it was installed
+## More help
+see ReadMe.html
 
 * * *
 # KMS_VL_ALL - 一个精巧灵活的激活批处理
-
+准备：把KMS_VL_ALL目录放到合适的位置（无特殊字符的路径），确保你不会删除它。删除或卸载其他相关KMS软件，暂停杀毒软件  
 ## 安装自动续期的KMS激活
-  - 1、把KMS_VL_ALL目录放到合适的位置，确保你不会删除它。  
- 先右键运行1-SppExtComObjPatcher.cmd，这是一个带有KMS服务器的HOOK，会劫持系统的KMS组件，请让杀毒软件放行，输入y安装；如果你需要卸载，只需要再次运行他，输入y卸载。
+  - 1、
+ 先右键管理员运行脚本AutoRenewal-Setup.cmd，这是一个带有KMS服务器的HOOK，会劫持系统的KMS组件，请让杀毒软件放行，输入y安装；如果你需要卸载，只需要再次运行他，输入y卸载。如果您使用防病毒软件，最好从扫描保护中排除此文件：
+**C:\Windows\System32\SppExtComObjHook.dll**
  
-  - 2、右键运行2-Activate-Local.cmd，这是一个自动激活本机所有批量产品的批处理，它可以单独使用，如果你想用第三方的KMS服务器而不调用1的劫持服务器的话，可以编辑它，设置Online值为1，并填上IP（或者域名）和port（默认1688）。  
-  不管你是用哪种服务器激活，如果你安装了新的产品，你仍至少需要运行一次2来处理产品激活。
+  - 2、右键运行Activate.cmd，这是一个自动激活本机所有批量产品的批处理，它可以单独使用，如果你想用第三方的KMS服务器而不调用1的劫持服务器的话，可以编辑它，设置External值为1，并填上IP（或者域名）和port（默认1688）。  
+  不管你是用哪种服务器激活，如果你安装了新的产品，你仍至少需要运行一次来处理产品激活。
 
-## 安装一次性的KMS手动续期激活
-如果你不需要自动续期，可以直接运行KMS_VL_ALL.cmd即可。该脚本是1和2的合体，并且在激活处理完成后会自动卸载1。  
+## 安装一次性的KMS手动续期激活（系统不会残留任何KMS软件）
+如果你不需要自动续期，可以直接运行Activate.cmd即可。你必须在KMS到期（默认是180天）前再次运行一次。 
 
 ## 其他文件
- - Check-Activation是检查激活状态的脚本。  
+ - Check-Activation-Status是检查激活状态的脚本（使用VBS）。  
+ - Check-Activation-Status-Alternative是检查激活状态的脚本(使用WMI)。  
  - $OEM$ 文件夹是用于系统部署自动激活的脚本。
 
 
