@@ -108,7 +108,7 @@ then upload or copy/post the log file
 Note: this will auto remove SppExtComObjPatcher if it was installed
 
 * * *
-# KMS_VL_ALL - 一个精巧灵活的激活批处理（版本28）
+# KMS_VL_ALL - 一个精巧灵活的激活批处理
 
 ## 安装自动续期的KMS激活
   - 1、把KMS_VL_ALL目录放到合适的位置，确保你不会删除它。  
