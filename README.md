@@ -10,7 +10,8 @@ office2013
 https://technet.microsoft.com/en-us/library/dn385360.aspx   
 office2010  
 https://technet.microsoft.com/en-us/library/ee624355(v=office.14).aspx   
-*Office Retail must be [converted](https://github.com/kkkgo/office-C2R-to-VOL) to Volume first, before it can be activated with KMS
+*Office Retail must be [converted](https://github.com/kkkgo/office-C2R-to-VOL) to Volume first, before it can be activated with KMS.  
+KMS activation on Windows 7 have a limitation related to SLIC 2.1 and Windows marker
 ## How To Use:
 >Remove any other KMS solutions.  
 Temporary suspend Antivirus realtime protection, or exclude the downloaded file and extracted folder from scanning to avoid quarantine.  
