@@ -1,10 +1,10 @@
-# KMS_VL_ALL - Smart Activation Script (Version 32)
+# KMS_VL_ALL - Smart Activation Script (Version 44)
 
 ## Supported Volume Products:  
 [see here](https://github.com/lixuy/vlmcsd#valid-apps)
 >Server/Windows  
 https://docs.microsoft.com/en-us/windows-server/get-started/kmsclientkeys  
-office2016 / office 2019  
+office2016 / office 2019  /office 2021  
 https://docs.microsoft.com/en-us/DeployOffice/vlactivation/gvlks   
 office2013   
 https://technet.microsoft.com/en-us/library/dn385360.aspx   
@@ -81,8 +81,8 @@ see ReadMe.html
 >不管你是用哪种方式激活，如果你安装了新的产品，你仍至少需要运行一次**Activate.cmd**来处理产品激活。
 
 ## 其他文件
- - **Check-Activation-Status.cmd** 是检查激活状态的脚本（使用VBS）。  
- - **Check-Activation-Status-Alternative.cmd** 是检查激活状态的脚本（使用WMI）。  
+ - **Check-Activation-Status-vbs.cmd** 是检查激活状态的脚本（使用VBS）。  
+ - **Check-Activation-Status-wmic.cmd** 是检查激活状态的脚本（使用WMI）。  
  - **$OEM$** 是用于封装系统部署自动激活的文件夹。
 
 
